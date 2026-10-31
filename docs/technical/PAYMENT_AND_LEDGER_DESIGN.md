@@ -176,29 +176,54 @@ BEFORE UPDATE OR DELETE ON journal_entries
 FOR EACH ROW
 EXECUTE FUNCTION fn_prevent_posted_journal_modification();
 
--- Trigger 3: Prevent Modification or Deletion of Lines on Posted Journals (with parent lock)
+-- Trigger 3: Prevent Modification or Deletion of Lines on Posted Journals (with deterministic parent lock)
 CREATE OR REPLACE FUNCTION fn_prevent_posted_lines_modification()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_parent_status journal_status_enum;
-    v_target_id UUID;
+    v_status journal_status_enum;
 BEGIN
-    v_target_id := COALESCE(OLD.journal_id, NEW.journal_id);
+    IF TG_OP = 'INSERT' THEN
+        SELECT posting_status INTO v_status FROM journal_entries WHERE id = NEW.journal_id FOR SHARE;
+        IF v_status IS NULL THEN
+            RAISE EXCEPTION 'Foreign Key Violation: Parent journal entry % does not exist', NEW.journal_id;
+        ELSIF v_status = 'POSTED' THEN
+            RAISE EXCEPTION 'Immutable Ledger Violation: Cannot insert lines into POSTED journal %', NEW.journal_id;
+        END IF;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        SELECT posting_status INTO v_status FROM journal_entries WHERE id = OLD.journal_id FOR SHARE;
+        IF v_status IS NULL THEN
+            RAISE EXCEPTION 'Foreign Key Violation: Parent journal entry % does not exist', OLD.journal_id;
+        ELSIF v_status = 'POSTED' THEN
+            RAISE EXCEPTION 'Immutable Ledger Violation: Cannot delete lines from POSTED journal %', OLD.journal_id;
+        END IF;
+        RETURN OLD;
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF OLD.journal_id = NEW.journal_id THEN
+            SELECT posting_status INTO v_status FROM journal_entries WHERE id = NEW.journal_id FOR SHARE;
+            IF v_status IS NULL THEN
+                RAISE EXCEPTION 'Foreign Key Violation: Parent journal entry % does not exist', NEW.journal_id;
+            ELSIF v_status = 'POSTED' THEN
+                RAISE EXCEPTION 'Immutable Ledger Violation: Cannot update lines on POSTED journal %', NEW.journal_id;
+            END IF;
+        ELSE
+            -- Deterministic locking order to prevent deadlocks when moving lines across journals
+            IF OLD.journal_id < NEW.journal_id THEN
+                PERFORM 1 FROM journal_entries WHERE id = OLD.journal_id FOR SHARE;
+                PERFORM 1 FROM journal_entries WHERE id = NEW.journal_id FOR SHARE;
+            ELSE
+                PERFORM 1 FROM journal_entries WHERE id = NEW.journal_id FOR SHARE;
+                PERFORM 1 FROM journal_entries WHERE id = OLD.journal_id FOR SHARE;
+            END IF;
 
-    -- Acquire row share lock on parent journal entry to serialize line mutation against posting status transitions
-    SELECT posting_status INTO v_parent_status 
-    FROM journal_entries 
-    WHERE id = v_target_id
-    FOR SHARE;
-
-    IF v_parent_status IS NULL THEN
-        RAISE EXCEPTION 'Foreign Key Violation: Parent journal entry % does not exist', v_target_id;
+            IF EXISTS (SELECT 1 FROM journal_entries WHERE id IN (OLD.journal_id, NEW.journal_id) AND posting_status = 'POSTED') THEN
+                RAISE EXCEPTION 'Immutable Ledger Violation: Cannot move line into or out of POSTED journal (% -> %)', OLD.journal_id, NEW.journal_id;
+            END IF;
+        END IF;
+        RETURN NEW;
     END IF;
 
-    IF v_parent_status = 'POSTED' THEN
-        RAISE EXCEPTION 'Immutable Ledger Violation: Cannot modify journal lines of already posted journal %', v_target_id;
-    END IF;
-    RETURN COALESCE(NEW, OLD);
+    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 

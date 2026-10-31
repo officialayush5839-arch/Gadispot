@@ -9,7 +9,7 @@
 
 ## 1. Traceability Overview & Verification Methodology
 
-Every functional and non-functional requirement defined in the Gadispot specification is mapped to its user persona, feature domain, release priority, architectural component, testable acceptance criteria, and explicit test scenario in [`docs/quality/TEST_STRATEGY.md`](docs/quality/TEST_STRATEGY.md).
+Every functional and non-functional requirement defined in the Gadispot specification is mapped to its user persona, feature domain, release priority, architectural component, testable acceptance criteria, and explicit test scenario in [`docs/quality/TEST_STRATEGY.md`](../quality/TEST_STRATEGY.md).
 
 ### Verification Levels
 - **UNIT:** Pytest / Flutter unit tests (isolated functions, state reducers, pricing math).
@@ -47,7 +47,7 @@ Every functional and non-functional requirement defined in the Gadispot specific
 | **DRV-006** | Razorpay Checkout Launch | Driver | **P0 (MVP)** | §10.6 | Flutter app launches Razorpay SDK with backend-generated `order_id`, pre-filling driver phone and amount. No payment gateway secret exists in app. | `INT`, `E2E` | `E2E-Pay` |
 | **DRV-007** | Authoritative Booking Confirmation | Driver | **P0 (MVP)** | §10.7 | Booking confirmation screen renders ONLY after backend confirms payment via webhook or polling verification. Never confirms on frontend callback alone. | `INT`, `API`, `E2E` | `TS-04`, `TS-05` |
 | **DRV-008** | Dynamic Access QR Display | Driver | **P0 (MVP)** | §10.8 | Renders high-contrast QR code generated from backend cryptosecure opaque token (`spx_...`); displays active booking countdown timer and navigation link. | `UNIT`, `E2E` | `TS-08`, `TS-09` |
-| **DRV-009** | Authoritative Policy Cancellation | Driver | **P0 (MVP)** | §10.9 | Driver cancels booking prior to arrival. Refund amount computed per authoritative policy (>2h=100% net fee, 1-2h=50%, <1h=0%) and refund order queued. | `INT`, `API` | `TS-14` |
+| **DRV-009** | Authoritative Policy Cancellation | Driver | **P0 (MVP)** | §10.9 | Driver cancels booking prior to arrival. Refund computed per authoritative cancellation policy (>2h: 100% parking fee; 30m–2h: 50% parking fee; <30m: 0% refund; convenience fee non-refundable; marked PROPOSED pending founder approval) and multi-stage refund queued. | `INT`, `API` | `TS-14` |
 | **DRV-010** | Active Session Tracking & Countdown | Driver | **P0 (MVP)** | §10.10 | Once guard records entry, app displays live elapsed session time, scheduled exit time, and "Extend Parking" button. | `INT`, `API` | `E2E-Session` |
 | **DRV-011** | Booking Extension Flow | Driver | **P0 (MVP)** | §10.11 | Extension request re-validates availability for extra duration; creates secondary payment order; upon payment, extends reservation end time atomically. | `CONCURRENCY`, `INT` | `TS-02`, `TS-19` |
 | **DRV-012** | Booking History & Receipts | Driver | **P0 (MVP)** | §10.12 | Lists past, active, and cancelled bookings with itemized receipts showing base price, platform fee, GST, and payment method reference. | `API` | `API-Hist` |
@@ -64,7 +64,7 @@ Every functional and non-functional requirement defined in the Gadispot specific
 | **OWN-002** | Parking Space Inventory Definition | Owner | **P0 (MVP)** | §11.2 | Owner adds specific parking bays: Bay Identifier, Vehicle Size Compatibility, Covered/Open, EV Charging Available (Yes/No). | `API`, `INT` | `API-Bays` |
 | **OWN-003** | Authorization Evidence Submission | Owner | **P0 (MVP)** | §11.3 | Uploads required legal proof (Property Tax Receipt, Electricity Bill, Society NOC, or Lease Agreement). Files stored in private encrypted S3 bucket. | `INT`, `SEC` | `Sec-Upload` |
 | **OWN-004** | Operating Hours & Schedule Setup | Owner | **P0 (MVP)** | §11.4 | Owner sets recurring weekly operating windows (e.g., Mon-Fri 09:00 - 18:00) and temporary blackout dates. Slots outside operating windows are never bookable. | `UNIT`, `INT`, `API` | `Int-Sched` |
-| **OWN-005** | Pricing Configuration | Owner | **P0 (MVP)** | §11.5 | Configures base hourly rate per space (e.g., ₹40/hr for 4W, ₹20/hr for 2W) and minimum booking duration (1 hour). | `UNIT`, `API` | `Unit-Price` |
+| **OWN-005** | Pricing Configuration | Owner | **P0 (MVP)** | §11.5 | Configures base hourly rate per space (e.g., ₹40/hr for 4W, ₹20/hr for 2W) and minimum booking duration (30 minutes, marked PROPOSED pending founder approval). | `UNIT`, `API` | `Unit-Price` |
 | **OWN-006** | Listing Verification Gatekeeper | Owner, System | **P0 (MVP)** | §11.6 | A space CANNOT transition to `PUBLISHED` or appear in search results until property authorization is marked `APPROVED` by Platform Operations. | `INT`, `API`, `SEC` | `TS-20` |
 | **OWN-007** | Real-time Owner Dashboard | Owner | **P0 (MVP)** | §11.7 | Mobile dashboard displays: Active Parked Vehicles, Today's Upcoming Bookings, Gross Today's Earnings, and Space Occupancy Status. | `API`, `E2E` | `E2E-Dash` |
 | **OWN-008** | Manual Space Blackout / Block | Owner | **P0 (MVP)** | §11.8 | Owner can manually block a space for personal use for specific future hours, provided no confirmed booking already exists for that window. | `CONCURRENCY`, `INT` | `TS-02` |

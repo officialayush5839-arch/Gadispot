@@ -68,7 +68,7 @@ SmartPark Exchange validates software dependability through an automated multi-t
   1. Backend attempts to transition Driver A's reservation to `CONFIRMED`.
   2. PostgreSQL throws `ExclusionViolation (23P01)` because Driver B now holds the slot.
   3. Backend catches exception; transitions Driver A's reservation to `RELEASED_UNFULFILLABLE`.
-  4. System enters multi-stage refund: `REFUND_PENDING` $\to$ calls gateway API $\to$ `REFUND_PROCESSING`.
+  4. System enters multi-stage refund: `REFUND_ELIGIBLE` $\to$ `REFUND_REQUESTED` $\to$ `GATEWAY_ACCEPTED` $\to$ `REFUND_PROCESSING` $\to$ `REFUND_SETTLED`.
   5. Driver A receives push notification of refund with banking settlement window (5–7 business days). Driver B's confirmed booking remains untouched.
 
 ### Scenario TS-05: Duplicate Payment Webhook Ingestion (Durable Idempotency)
@@ -85,7 +85,7 @@ SmartPark Exchange validates software dependability through an automated multi-t
 - **Preconditions:** A reservation is in `ACTIVE_HOLD`.
 - **Test Execution:** Gateway delivers `refund.processed` webhook *before* the `payment.captured` webhook.
 - **Expected Outcome:**
-  1. System detects invalid state transition (`ACTIVE_HOLD -> REFUNDED` without `CONFIRMED`).
+  1. System detects invalid state transition (`ACTIVE_HOLD -> REFUND_SETTLED` without `CONFIRMED`).
   2. Event is routed to Dead-Letter Queue (DLQ) with retry backoff; database transaction rolls back.
   3. Once `payment.captured` arrives and commits, DLQ worker re-evaluates refund successfully.
 

@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate-specs:
-    name: Validate V2.3 Specification Suite
+    name: Validate V2.3.1 Specification Suite
     runs-on: ubuntu-latest
 
     steps:
@@ -20,52 +20,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Verify Specification Harmonization
+      - name: Run Specification Verification Suite
         run: |
-          python -c "
-          import re, os, sys
-
-          banned_patterns = [
-              r'300 Seconds',
-              r'\b300s\b',
-              r'5-minute hold',
-              r'5-minute TTL',
-              r'compatibility\s*>=',
-              r'escrow-compliant',
-              r'instant.*refund'
-          ]
-
-          # Excluded paths where historical audit notes or revision logs are expected
-          excluded_files = {
-              'PRD.md',  # Contains revision table row explaining historical fixes
-              os.path.join('docs', 'audits', 'PRD_FINAL_AUDIT.md'),
-              os.path.join('docs', 'audits', 'PRD_V2_3_FINAL_AUDIT.md'),
-              os.path.join('docs', 'audits', 'PRD_V2_3_CHANGELOG.md'),
-              os.path.join('docs', 'audits', 'TECHNICAL_AUDIT.md'),
-              os.path.join('docs', 'technical', 'BOOKING_AND_AVAILABILITY_DESIGN.md')  # Contains explanatory note forbidding compatibility >=
-          }
-
-          violations = []
-          for root, _, files in os.walk('.'):
-              if '.git' in root:
-                  continue
-              for f in files:
-                  if f.endswith('.md'):
-                      path = os.path.relpath(os.path.join(root, f), '.')
-                      if path in excluded_files:
-                          continue
-                      with open(path, 'r', encoding='utf-8') as fp:
-                          content = fp.read()
-                      for pat in banned_patterns:
-                          matches = re.findall(pat, content, re.IGNORECASE)
-                          if matches:
-                              violations.append(f'{path}: found {matches} matching {pat}')
-
-          if violations:
-              print('Validation failed with obsolete patterns:')
-              for v in violations:
-                  print(' -', v)
-              sys.exit(1)
-          else:
-              print('All specification documents verified 100% harmonized to V2.2!')
-          "
+          python scripts/validate_spec.py

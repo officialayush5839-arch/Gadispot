@@ -132,7 +132,7 @@ CREATE INDEX idx_reservations_space_time ON space_reservations USING gist (parki
 CREATE INDEX idx_reservations_status ON space_reservations(status);
 CREATE INDEX idx_reservations_driver ON space_reservations(driver_id);
 CREATE INDEX idx_reservations_hold_expiry ON space_reservations(hold_expires_at) WHERE status = 'ACTIVE_HOLD';
-CREATE INDEX idx_reservations_refund_status ON space_reservations(refund_status) WHERE refund_status IN ('REFUND_PENDING', 'REFUND_PROCESSING');
+CREATE INDEX idx_reservations_refund_status ON space_reservations(refund_status) WHERE refund_status IN ('REFUND_ELIGIBLE', 'REFUND_REQUESTED', 'GATEWAY_ACCEPTED', 'REFUND_PROCESSING');
 ```
 
 ---
@@ -314,14 +314,14 @@ async def handle_payment_captured_webhook(order_id: str, payment_id: str, amount
                     UPDATE space_reservations 
                     SET status = 'RELEASED_UNFULFILLABLE',
                         payment_transaction_id = :pid,
-                        refund_status = 'REFUND_PENDING',
+                        refund_status = 'REFUND_ELIGIBLE',
                         refund_initiated_at = CLOCK_TIMESTAMP(),
                         updated_at = CLOCK_TIMESTAMP()
                     WHERE id = :id
                     """,
                     {"id": res.id, "pid": payment_id}
                 )
-                await post_ledger_unfulfillable_refund_pending(res, amount_in_paise, tx)
+                await post_ledger_unfulfillable_refund(res, amount_in_paise, tx)
                 await enqueue_outbox_event("REFUND_DISPATCH_REQUIRED", {"reservation_id": str(res.id), "payment_id": payment_id}, tx)
 
     # Outside atomic DB transaction: Asynchronous gateway refund dispatcher
@@ -329,12 +329,14 @@ async def handle_payment_captured_webhook(order_id: str, payment_id: str, amount
 ```
 
 ### 4.3 Multi-Stage Refund States & Customer Settlement Window
-A refund is **never described to the customer as instant**. The lifecycle spans:
-1. `REFUND_PENDING`: Refund record created in database; queued in outbox.
-2. `REFUND_PROCESSING`: Payment gateway accepted the refund request; ARN/UTR issued.
+A refund is **never described to the customer as instant**. The lifecycle spans the canonical 6 stages:
+1. `REFUND_ELIGIBLE`: Refund qualification verified against policy (cancellation, LPRP race loss, or GPRP arrival failure).
+2. `REFUND_REQUESTED`: Transactional outbox event queued for payment gateway execution.
+3. `GATEWAY_ACCEPTED`: Payment gateway API acknowledged refund request and returned gateway refund identifier.
+4. `REFUND_PROCESSING`: Payment gateway and banking switch processing transfer.
    - *Customer-Facing Status:* *"Refund initiated. Bank settlement typically completes in 5–7 business days per banking switch standards."*
-3. `REFUNDED`: Bank confirmation webhook received; settlement confirmed.
-4. `REFUND_FAILED`: Bank rail rejected refund (e.g. closed account); routed to ops finance queue for manual resolution.
+5. `REFUND_SETTLED`: Bank confirmation webhook received with bank UTR/ARN; settlement confirmed.
+6. `REFUND_FAILED`: Bank rail rejected refund (e.g. closed account); routed to ops finance queue for manual resolution.
 
 ---
 
@@ -427,4 +429,4 @@ When an arriving driver finds their reserved bay obstructed (`ARRIVAL_FAILED`):
 7. **Financial Adjustment:** If the alternative space has a higher tariff, platform absorbs the difference up to ₹100 via Account `4020` (Goodwill Subsidy Expense).
 8. **Credential Swap:** A new `ENTRY_TOKEN` is minted for the alternative bay; the original QR is revoked.
 
-*Fallback Rule:* If no alternative exists within 500m, or if the driver declines the alternative, the system immediately transitions to `REFUND_PENDING` and dispatches a 100% full refund of all charges and fees.
+*Fallback Rule:* If no alternative exists within 500m, or if the driver declines the alternative, the system immediately transitions to `REFUND_ELIGIBLE` and dispatches an automated 100% full refund through the canonical 6-stage lifecycle (`REFUND_ELIGIBLE` $\to$ `REFUND_REQUESTED` $\to$ `GATEWAY_ACCEPTED` $\to$ `REFUND_PROCESSING` $\to$ `REFUND_SETTLED`).

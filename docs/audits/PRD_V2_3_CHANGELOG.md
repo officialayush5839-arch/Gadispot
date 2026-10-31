@@ -92,7 +92,7 @@ Specification Version 2.3 represents the final engineering specification baselin
 
 ### Change CHG-006: Eradication of Machine-Specific Local Filesystem URIs
 - **Previous State:** Numerous markdown files contained local Windows file paths (`file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/...`) in hyperlinks, breaking on remote GitHub, CI runners, and other workstations.
-- **New State:** All links converted to portable, relative markdown links (e.g., `[USER_FLOWS.md](docs/product/USER_FLOWS.md)`).
+- **New State:** All links converted to portable, relative markdown links (e.g., `[USER_FLOWS.md](../product/USER_FLOWS.md)`).
 - **Exact Correction:** Replaced all absolute filesystem URIs across `PRD.md`, `PRD_FINAL_AUDIT.md`, `REQUIREMENTS_TRACEABILITY.md`, and `README.md`.
 - **Reason:** Repository portability, developer experience, and standard documentation craftsmanship.
 - **Affected Requirements:** Documentation integrity across all files.
