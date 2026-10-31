@@ -1,10 +1,10 @@
-# SmartPark Exchange — Comprehensive Database & Data Architecture Specification (V2.2)
+# Gadispot (formerly SmartPark Exchange) — Comprehensive Database & Data Architecture Specification (V2.3)
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Date:** October 31, 2026  
 > **Authors:** Database Architect, Principal Software Architect, Senior Backend Engineer  
 > **Target Database Engine:** PostgreSQL 16 with PostGIS and `btree_gist`  
-> **Status:** Authoritative Engineering Design (Targeted Revision V2.2)  
+> **Status:** Authoritative Engineering Design (Targeted Revision V2.3)  
 
 ---
 
@@ -105,13 +105,15 @@ CREATE TYPE reservation_status_enum AS ENUM (
     'RELEASED_UNFULFILLABLE'
 );
 
--- Multi-Stage Refund Tracking
+-- Multi-Stage Refund Tracking (Canonical 6-Stage Lifecycle)
 CREATE TYPE refund_status_enum AS ENUM (
     'NONE',
-    'REFUND_PENDING',
-    'REFUND_PROCESSING',
-    'REFUNDED',
-    'REFUND_FAILED'
+    'REFUND_ELIGIBLE',          -- Qualification verified against cancellation or recovery policy
+    'REFUND_REQUESTED',         -- Queued for gateway API execution in outbox
+    'GATEWAY_ACCEPTED',         -- Gateway acknowledged refund request with refund_id
+    'REFUND_PROCESSING',        -- Gateway processing on banking rails
+    'REFUND_SETTLED',           -- Settlement confirmed via gateway webhook with bank UTR
+    'REFUND_FAILED'             -- Gateway or bank rail rejected refund; requires manual ops review
 );
 
 -- Access Credentials
@@ -377,7 +379,7 @@ CREATE INDEX idx_journal_lines_journal ON journal_lines(journal_id);
 CREATE INDEX idx_journal_lines_account ON journal_lines(account_code);
 CREATE INDEX idx_journal_entries_reference ON journal_entries(transaction_reference);
 
--- TRIGGER: ENFORCE BALANCED JOURNAL POSTING (Debits == Credits AND >= 2 lines)
+-- TRIGGER: ENFORCE BALANCED JOURNAL POSTING (Debits == Credits AND >= 2 lines with row locking)
 CREATE OR REPLACE FUNCTION fn_verify_journal_balance()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -386,6 +388,9 @@ DECLARE
     v_line_count INT;
 BEGIN
     IF NEW.posting_status = 'POSTED' AND (OLD.posting_status IS NULL OR OLD.posting_status != 'POSTED') THEN
+        -- Acquire exclusive lock on lines to serialize against concurrent in-flight line insertions
+        PERFORM 1 FROM journal_lines WHERE journal_id = NEW.id FOR UPDATE;
+
         SELECT 
             COALESCE(SUM(CASE WHEN entry_side = 'DEBIT' THEN amount_in_paise ELSE 0 END), 0),
             COALESCE(SUM(CASE WHEN entry_side = 'CREDIT' THEN amount_in_paise ELSE 0 END), 0),
@@ -430,4 +435,36 @@ CREATE TRIGGER trg_prevent_posted_modification
 BEFORE UPDATE OR DELETE ON journal_entries
 FOR EACH ROW
 EXECUTE FUNCTION fn_prevent_posted_journal_modification();
+
+-- TRIGGER: IMMUTABILITY OF POSTED JOURNAL LINES & PARENT LOCKING
+CREATE OR REPLACE FUNCTION fn_prevent_posted_journal_line_modification()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_status journal_status_enum;
+    v_parent_id UUID;
+BEGIN
+    v_parent_id := COALESCE(NEW.journal_id, OLD.journal_id);
+
+    -- Acquire row share lock on parent journal entry to serialize line mutation against posting status transitions
+    SELECT posting_status INTO v_status
+    FROM journal_entries
+    WHERE id = v_parent_id
+    FOR SHARE;
+
+    IF v_status IS NULL THEN
+        RAISE EXCEPTION 'Foreign Key Violation: Parent journal entry % does not exist', v_parent_id;
+    END IF;
+
+    IF v_status = 'POSTED' THEN
+        RAISE EXCEPTION 'Immutable Ledger Violation: Cannot insert, update, or delete lines on POSTED journal %', v_parent_id;
+    END IF;
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_prevent_posted_line_modification
+BEFORE INSERT OR UPDATE OR DELETE ON journal_lines
+FOR EACH ROW
+EXECUTE FUNCTION fn_prevent_posted_journal_line_modification();
 ```

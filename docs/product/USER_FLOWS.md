@@ -1,8 +1,8 @@
-# SmartPark Exchange — Comprehensive User Flow & System Journey Diagrams
+# Gadispot (formerly SmartPark Exchange) — Comprehensive User Flow & System Journey Diagrams
 
-> **Document Version:** 2.0.0 (Re-Engineered)  
+> **Document Version:** 2.3.0  
 > **Last Updated:** 2026-10-31  
-> **Status:** Approved Architecture Reference  
+> **Status:** Approved Architecture Reference (V2.3 Harmonized)  
 > **Audience:** Engineering, Product, QA, Architecture  
 
 ---

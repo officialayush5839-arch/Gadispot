@@ -1,9 +1,9 @@
-# SmartPark Exchange — QR Access & Verification Architecture (V2.2)
+# Gadispot (formerly SmartPark Exchange) — QR Access & Verification Architecture (V2.3)
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Date:** October 31, 2026  
 > **Authors:** Mobile Application Architect, Application Security Engineer, Principal Software Architect  
-> **Status:** Authoritative Engineering Design (Targeted Revision V2.2)  
+> **Status:** Authoritative Engineering Design (Targeted Revision V2.3)  
 
 ---
 

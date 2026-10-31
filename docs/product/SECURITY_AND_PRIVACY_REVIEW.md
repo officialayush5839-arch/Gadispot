@@ -1,10 +1,10 @@
-# SmartPark Exchange — Security Threat Model & Privacy Impact Review
+# Gadispot (formerly SmartPark Exchange) — Security Threat Model & Privacy Impact Review
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Date:** 2026-10-31  
 > **Authors:** Application Security Engineer, Privacy & Data Protection Specialist, Principal Software Architect  
 > **Compliance Baseline:** Digital Personal Data Protection Act (DPDPA) 2023 / OWASP Top 10 API / STRIDE  
-> **Status:** Approved Engineering Baseline (V2.2 Harmonized)  
+> **Status:** Approved Engineering Baseline (V2.3 Harmonized)  
 
 ---
 

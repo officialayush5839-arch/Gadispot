@@ -1,14 +1,14 @@
-# SmartPark Exchange (Codename: Gadispot)
+# Gadispot (formerly SmartPark Exchange)
 
 > **Mobile-First Real-Time Parking Marketplace for India**  
-> **Specification Baseline:** V2.2 (Sprint 0/1 Implementation Ready)  
+> **Specification Baseline:** V2.3 (Sprint 0/1 Implementation Ready)  
 > **Architecture:** In-Process Modular Monolith (FastAPI) + Single Cross-Platform Binary (Flutter)
 
 ---
 
 ## Overview
 
-SmartPark Exchange connects drivers searching for parking in congested Indian urban centers with private property owners, housing society committees, and commercial parking operators possessing underutilized parking capacity.
+Gadispot (formerly SmartPark Exchange) connects drivers searching for parking in congested Indian urban centers with private property owners, housing society committees, and commercial parking operators possessing underutilized parking capacity.
 
 The system is engineered as a mobile-first platform operating under strict concurrency constraints, zero-loss double-entry accounting, and cyber-physical access controls.
 
@@ -18,7 +18,7 @@ The system is engineered as a mobile-first platform operating under strict concu
 
 1. **Strict Mobile Binary with Dynamic Role Shells**: A single Flutter codebase deploying to Android and iOS dynamically rendering Driver (`SCR-100s`), Owner (`SCR-200s`), Guard (`SCR-301..304`), and Ops (`SCR-400s`) shells based on verified server JWT claims.
 2. **Interval-Based Concurrency**: Universal 480-second (8-minute) checkout holds backed by PostgreSQL `btree_gist` temporal exclusion constraints (`EXCLUDE USING gist (parking_space_id WITH =, time_window WITH &&)`).
-3. **Double-Entry General Ledger**: Mathematical equality ($\sum \text{Debits} = \sum \text{Credits}$) enforced via append-only PostgreSQL triggers across 12 distinct financial event templates.
+3. **Double-Entry General Ledger**: Mathematical equality ($\sum \text{Debits} = \sum \text{Credits}$) enforced via append-only PostgreSQL triggers across 12 distinct financial event templates with row-level serialization against concurrent line insertion.
 4. **Separated Dynamic QR Lifecycles**: Strict isolation between Razorpay UPI payment collection QRs and high-entropy 128-bit CSPRNG gate access passes (`ENTRY_TOKEN` and `EXIT_TOKEN`).
 5. **Controlled Offline Guard Fallback**: Deterministic manual check-in workflow for cellular-dead basement garages with an automated 7-day S3 privacy purge policy for verification photos.
 
@@ -27,7 +27,7 @@ The system is engineered as a mobile-first platform operating under strict concu
 ## Documentation Suite
 
 ### Master Product Specification
-* [PRD.md](PRD.md) — Comprehensive 50-section Product Requirements Document (V2.2).
+* [PRD.md](PRD.md) — Comprehensive 50-section Product Requirements Document (V2.3).
 
 ### Technical Blueprints
 * [BOOKING_AND_AVAILABILITY_DESIGN.md](docs/technical/BOOKING_AND_AVAILABILITY_DESIGN.md) — Multi-Source Availability Intelligence (MSAI), two-tier hold expiration engine, and Late Payment Resolution Protocol (LPRP).
@@ -48,13 +48,15 @@ The system is engineered as a mobile-first platform operating under strict concu
 * [OPEN_SOURCE_INTEGRATIONS.md](docs/product/OPEN_SOURCE_INTEGRATIONS.md) — Third-party OSS licensing and dependency audits.
 
 ### Quality Assurance & Audits
+* [PRD_V2_3_FINAL_AUDIT.md](docs/audits/PRD_V2_3_FINAL_AUDIT.md) — Final comprehensive independent readiness audit for V2.3.
+* [PRD_V2_3_CHANGELOG.md](docs/audits/PRD_V2_3_CHANGELOG.md) — Full changelog documenting all corrections between V2.2 and V2.3.
 * [TEST_STRATEGY.md](docs/quality/TEST_STRATEGY.md) — Test matrix detailing 20 critical scenarios (`TS-01` to `TS-20`) with executable Python test harness code.
-* [PRD_FINAL_AUDIT.md](docs/audits/PRD_FINAL_AUDIT.md) — Final readiness audit scoring 98/100 with Sprint 0/1 sign-off.
+* [PRD_FINAL_AUDIT.md](docs/audits/PRD_FINAL_AUDIT.md) — Historical V2.2 readiness audit.
 * [TECHNICAL_AUDIT.md](docs/audits/TECHNICAL_AUDIT.md) — Historical audit analysis resolving foundational V1.0/V2.0 defects.
 
 ---
 
 ## Status
 
-* **Specification Maturity:** 10/10 Engineering Baseline.
-* **Current Phase:** Sprint 0 Core Infrastructure & Data Layer Scaffolding.
+* **Specification Maturity:** V2.3 Authoritative Specification Baselined (Sprint 0/1 Architecture & Data Layer Signoff).
+* **Launch Gates:** Commercial Pilot Launch Gated on External Payment Aggregator Merchant Underwriting & Municipal Pilot Whitelist.

@@ -1,37 +1,38 @@
 # Master Product Requirements Document (PRD)
-# SmartPark Exchange
+# Gadispot (formerly SmartPark Exchange)
 
-> **Document Title:** SmartPark Exchange — Master Product Requirements Document  
-> **Document Identifier:** PRD-SPX-2026-V2.2-REVIEW  
+> **Document Title:** Gadispot — Master Product & Engineering Requirements Specification  
+> **Document Identifier:** PRD-GSP-2026-V2.3-FINAL  
 > **Target Market:** India (Urban Metros — Bengaluru Pilot)  
 > **Target Platforms:** Mobile-Only (Android & iOS via single Flutter Codebase)  
 > **Backend Architecture:** In-Process Modular Monolith (Python / FastAPI / PostgreSQL 16 / Redis 7.0+)  
-> **Authoring Team:** Multidisciplinary Senior Product, Engineering & Security Architecture Group  
-> **Status:** Architectural Design Review — Conditional Approval (Implementation Gates Outstanding)  
+> **Authoring Team:** Multidisciplinary Senior Product, Engineering, Security & FinTech Architecture Group  
+> **Status:** Baselined Final Specification (Sprint 0/1 Implementation Authorized; Pilot Launch Gated on External Rails)  
 
 ---
 
-## 1. Document Control and Version History
+## 1. Document Control and Revision History
 
 ### 1.1 Revision History
 
 | Version | Release Date | Primary Authors / Roles | Summary of Major Changes | Approval Status |
 |---|---|---|---|---|
 | **v0.1.0** | 2026-10-15 | Principal PM, Lead Architect | Initial product framing, discovery, and high-level market problem definition. | Conceptual Draft |
-| **v1.0.0** | 2026-10-31 | Multi-disciplinary Team | Comprehensive initial PRD across 45 sections. | Initial Draft (Found Defects) |
+| **v1.0.0** | 2026-10-31 | Multi-disciplinary Team | Comprehensive initial PRD across 45 sections. Foundational scoping. | Initial Draft (Defects Found) |
 | **v2.0.0** | 2026-10-31 | Unified Senior Architecture Team | Comprehensive Technical Re-engineering: Unified data model, GiST locks, LPRP, double-entry ledger, QR separation. | Re-engineered Draft |
 | **v2.1.0** | 2026-10-31 | Unified Senior Architecture Team | Targeted Architectural Corrections: Concurrency locks, multi-stage refund states, 128-bit CSPRNG entropy. | Review Draft |
-| **v2.2.0** | 2026-10-31 | Unified Senior Architecture Team | **Comprehensive Precision Refinement & Final Audit Alignment:**<br>1. Universal checkout hold duration standardization (strictly 480 seconds / 8 minutes across all sections).<br>2. De-escalated 'instant refund' claims to 6-stage asynchronous refund lifecycle (`REFUND_ELIGIBLE` $\to$ `REFUND_SETTLED`).<br>3. Durable database-level payment idempotency (`payment_webhook_events`) and transactional outbox.<br>4. Reconciled financial arithmetic (platform absorbs MDR; exact ₹15.87 net take-rate & ₹68.00 owner payable; 12 balanced journal templates).<br>5. Removed unbacked escrow claims; established MoR status and scheduled batch bank transfers during pilot.<br>6. Eradicated residual scalar vehicle compatibility SQL in §18.1.<br>7. Standardized search radius to 3 km default (5 km max configurable).<br>8. Two-tier hold expiration engine transaction semantics and locking.<br>9. GPRP 8-step atomic order of operations with 180s driver decision timeout.<br>10. Offline basement manual exception privacy controls (automated 7-day photo purge rule).<br>11. Formal entry/exit credential state machine with extension and overstay transitions.<br>12. Downgraded unverified legal, tax, and provider claims, removing 'zero web attack surface' and '₹0 CapEx'.<br>13. Complete 65-question decision register and enumerated 20 high-risk test scenarios. | **Conditional Approval (Sprint 0/1)** |
+| **v2.2.0** | 2026-10-31 | Unified Senior Architecture Team | Precision Refinement: Standardized 480s hold, reconciled unit economics (₹19.83 margin / ₹65.84 owner payable), durable webhook idempotency, 7-day photo purge rule, 65-question decision register. | Conditional Review Draft |
+| **v2.3.0** | 2026-10-31 | Unified Senior Architecture Team | **Final Authoritative Specification & Defect Elimination:**<br>1. Unified canonical 6-stage refund lifecycle (`REFUND_ELIGIBLE` $\to$ `REFUND_SETTLED`) across PRD and DDL.<br>2. Enforced database immutability triggers and row locking on `journal_lines` (`trg_prevent_posted_lines_mod`).<br>3. Completely eliminated all lingering 5-min/04:59 checkout references in architecture and screen specs.<br>4. Replaced all machine-specific local filesystem URIs with portable repository markdown links.<br>5. Restructured into 50 canonical sections featuring stable requirement IDs (`FR-AUTH-001` through `FR-GPRP-001`) with complete 14-field specifications.<br>6. Incorporated all 15 explicit end-to-end acceptance test scenarios (§42).<br>7. De-escalated unsupported readiness scores; established honest Readiness Gates A through F.<br>8. Harmonized project identity as **Gadispot (formerly SmartPark Exchange)**. | **Approved Final Baseline (Sprint 0/1)** |
 
-### 1.2 Formal Founder Decisions (V2.2 Baselines)
+### 1.2 Formal Founder Decisions (V2.3 Baselines)
 
 | Decision ID | Operational Domain | Founder Approved Value | Implementation Guidance |
 |---|---|---|---|
-| **Q1 / OQ-PAY-001** | Payment Provider Strategy | **Dual Application (Razorpay Primary, Cashfree Secondary)** | Maintain runtime-swappable `PaymentGatewayPort` abstraction. |
-| **Q2 / OQ-OPS-004** | Alternative Space Failure | **100% Full Refund to Original Instrument** | Automatic fallback to `REFUND_PENDING` if GPRP alternative space cannot be secured or is declined. |
-| **Q3 / OQ-TECH-010** | Offline Guard Admission | **Controlled Manual Exception Protocol** | Offline entry allowed with plate match against cached schedule, mandatory photo proof, and async sync. |
+| **Q1 / OQ-PAY-001** | Payment Provider Strategy | **Dual Application (Razorpay Primary, Cashfree Secondary)** | Maintain runtime-swappable `PaymentGatewayPort` abstraction interface. |
+| **Q2 / OQ-OPS-004** | Alternative Space Failure | **100% Full Refund to Original Instrument** | Automatic fallback to `REFUND_ELIGIBLE` if GPRP alternative space cannot be secured or is declined within 180s. |
+| **Q3 / OQ-TECH-010** | Offline Guard Admission | **Controlled Manual Exception Protocol** | Offline entry allowed with plate match against cached schedule, mandatory photo proof, async sync, and automated 7-day S3 photo purge. |
 | **Q4 / OQ-BIZ-003** | Maximum Booking Duration | **Configurable by Property (Default 24 Hours)** | Space owners can set maximum continuous hours up to 24h. Multi-day leases deferred to Phase 2. |
-| **Q5 / OQ-PAY-002** | MVP Marketplace Payouts | **Scheduled Batch Bank Transfers from Corporate Account** | Direct IMPS payouts under prior bank agreement and strict owner KYC (PAN + Penny Drop). |
+| **Q5 / OQ-PAY-002** | MVP Marketplace Payouts | **Scheduled Batch Bank Transfers from Corporate Account** | Direct IMPS payouts under corporate bank agreement, Merchant of Record status, and strict owner KYC (PAN + Penny Drop). |
 
 ### 1.3 Document Approvals & Signoffs
 
@@ -44,16 +45,16 @@
 | **Payment Systems Architect** | UPI & Indian Payment Gateways Lead | 2026-10-31 | **APPROVED FOR SPRINT 0/1** |
 | **Mobile Application Architect** | Mobile Engineering Lead (Flutter) | 2026-10-31 | **APPROVED FOR SPRINT 0/1** |
 | **Application Security Engineer** | Cybersecurity & Threat Modeling Lead | 2026-10-31 | **APPROVED FOR SPRINT 0/1** |
-| **Privacy & Data Protection Specialist** | Legal & DPDPA Compliance Counsel | 2026-10-31 | **CONDITIONAL (Subject to legal terms)** |
+| **Privacy & Data Protection Specialist** | Legal & DPDPA Compliance Counsel | 2026-10-31 | **CONDITIONAL (Subject to legal counsel signoff)** |
 | **QA & Test Strategy Director** | QA Automation & Test Lead | 2026-10-31 | **APPROVED FOR SPRINT 0/1** |
 
 ---
 
 ## 2. Executive Summary
 
-**SmartPark Exchange** is an authoritative, mobile-first two-sided parking marketplace engineered specifically for the hyper-dense urban mobility landscape in India. It unlocks underutilized, dormant private residential driveways, gated society visitor bays, commercial office basements, and authorized private parking lots, transforming them into a reliable network of pre-bookable, time-slotted parking inventory.
+**Gadispot** (formerly SmartPark Exchange) is an authoritative, mobile-first two-sided parking marketplace engineered specifically for the hyper-dense urban mobility landscape in India. It unlocks underutilized, dormant private residential driveways, gated society visitor bays, commercial office basements, and authorized private parking lots, transforming them into a reliable network of pre-bookable, time-slotted parking inventory.
 
-Unlike passive directories that display unverified locations or crowdsourced approximations, SmartPark operates as a **deterministic reservation exchange**. Every reservation is guaranteed by:
+Unlike passive directories that display unverified locations or crowdsourced approximations, Gadispot operates as a **deterministic reservation exchange**. Every reservation is guaranteed by:
 1. **Multi-Source Availability Intelligence (MSAI):** Synthesizing 7 operational signals to eliminate speculative inventory and double-bookings.
 2. **PostgreSQL GiST Concurrency Locks:** Mathematical exclusion of overlapping time-window holds directly at the database engine level via `EXCLUDE USING gist`.
 3. **Late Payment Resolution Protocol (LPRP):** Automated handling of payments arriving after 480-second hold expirations, ensuring zero double-bookings and a deterministic multi-stage refund protocol when slots are claimed by competing drivers.
@@ -61,27 +62,21 @@ Unlike passive directories that display unverified locations or crowdsourced app
 5. **Hardware-Agnostic Gate Verification:** Secure, opaque, one-time access QR tokens scanned by existing on-premise security guards via a lightweight mobile app, minimizing gate infrastructure CapEx by utilizing existing guard smartphones.
 6. **Controlled Offline Guard Fallback:** A realistic, audited manual fallback protocol for underground basements with zero cellular connectivity, governed by automated 7-day photo retention limits.
 7. **True Double-Entry General Ledger:** An immutable, append-only financial accounting engine with standard Chart of Accounts, balanced debits and credits ($\sum \text{Debits} = \sum \text{Credits}$), and compliant weekly payout mechanisms.
-6. **Controlled Offline Guard Fallback:** A realistic, audited manual fallback protocol for underground basements with zero cellular connectivity.
-7. **True Double-Entry General Ledger:** An immutable, append-only financial accounting engine with standard Chart of Accounts, balanced debits and credits ($\sum \text{Debits} = \sum \text{Credits}$), and compliant weekly payout mechanisms.
 
 ### Core Platform Decision
-SmartPark is strictly **MOBILE-ONLY**. In the MVP, all customer-facing, space-owner, and gate-guard interactions are delivered through a single cross-platform **Flutter mobile application** for **Android** and **iOS** featuring dynamic role-based shells. There is **no public consumer website**, **no desktop booking portal**, and **no public web admin dashboard**. Internal platform operations workflows are managed via restricted mobile views and secure backend scripts.
+Gadispot is strictly **MOBILE-ONLY**. In the MVP, all customer-facing, space-owner, and gate-guard interactions are delivered through a single cross-platform **Flutter mobile application** for **Android** and **iOS** featuring dynamic role-based shells. There is **no public consumer website**, **no desktop booking portal**, and **no public web admin dashboard**. Internal platform operations workflows are managed via restricted mobile views (`SCR-401..402`) and secure backend administrative CLI tools.
 
 ---
 
-## 3. Product Vision
+## 3. Product Overview
 
-### 3.1 The Central Product Promise
-> **"Find parking, reserve it, pay securely, access it reliably, and receive a clear resolution if something goes wrong."**
+Gadispot establishes an institutional bridge between drivers who cannot find reliable parking in congested Indian metro blocks and private property owners who possess empty vehicular capacity.
 
-SmartPark rejects the practice of making unconditional commercial guarantees that cannot be operationally fulfilled. Instead, dependability is achieved through strict contract enforcement, pessimistic availability logic, and a structured recovery protocol.
-
-### 3.2 Five Solved Marketplace Problems
-1. **Discovery:** Precision PostGIS spatial search filtering available bays by physical vehicle dimensions within a 3km radius.
-2. **Authorization:** Rigorous legal right-of-use vetting before a property can publish bookable inventory.
-3. **Availability:** Mathematical concurrency exclusion eliminating double-bookings and phantom availability.
-4. **Fulfillment:** Sub-second gate validation via single-use, non-guessable QR tokens scanned on guard smartphones.
-5. **Recovery:** The Guaranteed Parking Recovery Protocol (GPRP), providing an atomic 8-step alternative space reallocation within a 500m search boundary, or a deterministic refund protocol if an alternative cannot be secured.
+### Key Functional Pillars:
+- **For Drivers:** Real-time search within a 3km default radius, guaranteed physical bay reservation via 480-second atomic hold, seamless UPI Intent checkout, dynamic high-contrast access QR pass, live parking session timer, and automated recovery protection.
+- **For Property Owners:** Effortless space listing, granular recurring weekly schedules, real-time occupancy and earnings visibility, and scheduled weekly direct bank payouts under strict KYC (PAN + Penny Drop).
+- **For Security Guards:** Fast one-handed camera QR scanning on low-end Android handsets, sub-second admission clearance, offline schedule fallback in subterranean basements, and one-tap incident reporting.
+- **For Platform Operators:** Centralized property verification queue, dispute resolution tools, ledger audit trails, and automated financial reconciliation.
 
 ---
 
@@ -115,782 +110,1095 @@ SmartPark rejects the practice of making unconditional commercial guarantees tha
 
 ---
 
-## 5. Target Users & Stakeholders
+## 5. Product Vision and Objectives
 
-SmartPark serves four discrete operational user groups in the Indian urban ecosystem:
-1. **Daily Urban Commuters (Drivers):** Office workers, shoppers, and event attendees seeking dependable short-term parking (30 minutes to 24 hours).
-2. **Private Residential Owners (Hosts):** Homeowners with empty driveways or gated villa bays seeking passive income with zero security risk.
-3. **Commercial Facility Managers:** Operators of commercial office basements, malls, and banquet halls monetizing off-peak excess bay capacity.
-4. **On-Premise Security Guards & Attendants:** Gate personnel responsible for physical access control, visitor validation, and vehicle admitting.
+### 5.1 Central Product Promise
+> **"Find parking, reserve it, pay securely, access it reliably, and receive a clear resolution if something goes wrong."**
+
+Gadispot achieves dependability through strict contract enforcement, pessimistic availability logic, and a structured recovery protocol.
+
+### 5.2 Specific Measurable Objectives
+1. **Sub-Second Discovery:** Return verified, dimensionally compatible parking spaces within 500ms for 95% of spatial search requests in a 3km radius.
+2. **Zero Double-Bookings:** Maintain 100% mathematical exclusion of overlapping confirmed bookings and active holds via database storage engine constraints.
+3. **Sub-2-Second Gate Admission:** Enable security guards to scan an access pass, complete backend validation, and render admission verdict in under 2 seconds.
+4. **Complete Ledger Auditability:** Guarantee that 100% of posted financial journals satisfy $\sum \text{Debits} = \sum \text{Credits}$ with zero unallocated funds.
+5. **Deterministic Incident Recovery:** Provide an automated 8-step alternative space reallocation within 500m or initiate a 100% full refund within 180 seconds of an arrival failure report.
+
+### 5.3 Initial Pilot Geography
+- **Target City:** Bengaluru, Karnataka.
+- **Pilot Micro-Markets:** Koramangala, Indiranagar, and HSR Layout.
+- **Currency & Timezone:** Indian Rupee (INR / ₹) stored as integer paise. Timestamps stored in UTC (`TIMESTAMPTZ`) and displayed in Indian Standard Time (IST, UTC+05:30).
 
 ---
 
-## 6. User Personas
+## 6. Target Users and Personas
+
+### Persona 1: Rohan — The Urban Commuter (Driver)
+- **Profile:** 29-year-old software engineer driving a Hyundai Creta (SUV) to client meetings in Koramangala.
+- **Pain Point:** Circles for 20 minutes looking for parking; risks parking on roadsides with towing hazards; cannot afford to be late.
+- **Needs:** Pre-book a guaranteed spot before leaving home, receive turn-by-turn navigation, and flash a pass at the gate for immediate access.
+
+### Persona 2: Anand — The Driveway Monetizer (Space Owner)
+- **Profile:** 54-year-old homeowner with an independent villa in Indiranagar with a 2-car covered driveway, using only 1 bay during work hours.
+- **Pain Point:** Has vacant driveway capacity during daytime hours; hesitant to let strangers park without identity verification.
+- **Needs:** Easy scheduling (Mon–Fri 09:00–18:00), vetted drivers, automatic weekly payouts to his HDFC bank account, and zero physical involvement.
+
+### Persona 3: Ramesh — The Gate Security Guard
+- **Profile:** 38-year-old security guard at a gated commercial property in HSR Layout; uses a budget Android smartphone with erratic 4G.
+- **Pain Point:** Stressed by visitor congestion; struggles with handwritten registers; argued with drivers claiming verbal authorization.
+- **Needs:** A simple camera screen to scan a driver's QR code, immediate Green/Red feedback, and a fallback mode that works in the basement.
+
+### Persona 4: Deepa — Platform Operations Specialist
+- **Profile:** 27-year-old operations associate responsible for Bengaluru listing quality, dispute arbitration, and host onboarding.
+- **Pain Point:** Sifting through fraudulent property listings; managing customer complaints when a bay is blocked.
+- **Needs:** Fast document verification queue with tax receipt inspection, one-click GPRP incident review, and tamper-proof ledger audit trails.
+
+---
+
+## 7. User Roles and Permission Boundaries
+
+Gadispot enforces strict Role-Based Access Control (RBAC) at the API and database levels:
+
+| User Role | Accessible Mobile Screens | Permitted Actions | Forbidden Actions |
+|---|---|---|---|
+| **DRIVER** | `SCR-101..107` | Search spaces, book bays, initiate holds, pay via UPI, view entry/exit QR, extend sessions, cancel bookings, report arrival issues, rate stays. | Cannot view owner earnings, cannot scan passes as guard, cannot approve listings, cannot alter tariffs. |
+| **OWNER** | `SCR-201..205` | List properties, define spaces, submit deeds/NOCs, configure operating schedules, block bays for personal use, view earnings, link bank account. | Cannot approve own listings, cannot override platform commissions, cannot modify completed ledger journals. |
+| **GUARD** | `SCR-301..304` | Scan entry/exit QRs, view shift arrival schedules, execute offline manual admissions, report space obstructions. | Cannot view booking prices, cannot see driver contact details (PII masked), cannot create bookings, cannot issue refunds. |
+| **OPERATIONS**| `SCR-401..402` | Audit property verification documents, approve/reject listings, review GPRP arrival incidents, arbitrate disputes, trigger manual refund escalations. | Cannot initiate unbudgeted ledger payouts without dual approval; cannot modify posted journals. |
+| **ADMIN** | Backend CLI / Dual-Approval API | System configuration, database migrations, security administration, commercial commission configuration, emergency kill-switches. | Cannot bypass ledger balance triggers; all root actions logged immutably. |
+
+---
+
+## 8. Product Scope
+
+### 8.1 In-Scope for MVP
+1. Mobile application for Android and iOS using a single Flutter codebase.
+2. In-process modular monolith backend in Python FastAPI with PostgreSQL 16 + PostGIS and Redis 7.0+.
+3. Passwordless phone number authentication via Firebase Phone Auth with authoritative backend JWT minting.
+4. Geospatial PostGIS radius search (3km default, 5km max) with vehicle dimension compatibility filtering.
+5. Atomic interval-based reservation holds with strictly 480-second (8-minute) lifespan backed by `btree_gist`.
+6. Razorpay UPI Intent checkout integration with durable database webhook idempotency (`payment_webhook_events`).
+7. Dynamic access credential lifecycle with 128-bit CSPRNG tokens (`ENTRY_TOKEN` and `EXIT_TOKEN`).
+8. On-premise security guard QR scanning via `mobile_scanner` with offline manual exception fallback.
+9. Guaranteed Parking Recovery Protocol (GPRP) with 180s driver decision timeout and automated 6-stage refund.
+10. Immutable double-entry general ledger with balanced debit/credit database triggers.
+11. Owner property verification with private encrypted S3 evidence storage.
+12. Scheduled batch bank payouts to verified owner accounts (PAN + Penny Drop).
+
+### 8.2 Out of Scope for MVP (Deferred to Phase 2+)
+- Hardware IoT sensors, ultrasonic bay detectors, and magnetic loop detectors.
+- Automated Number Plate Recognition (ANPR) and computer vision camera feeds.
+- Automated motorized barrier gates and boom-barrier relay controllers.
+- Public web portal, consumer web booking, or desktop admin dashboards.
+- Dynamic surge pricing algorithms or predictive demand modeling.
+- Electric vehicle (EV) charging kilowatt-hour billing and charger plug hardware integration.
+- Continuous multi-day leases, monthly recurring subscriptions, or corporate fleet billing.
+- International payment gateways and cross-border currency conversions.
+
+---
+
+## 9. MVP and Future Roadmap
 
 ```
-+--------------------------------------------------------------------------------------------------+
-|                                  USER PERSONA MATRIX                                             |
-+---------------------+-------------------------------+--------------------------------------------+
-| Persona             | Profile & Demographics       | Primary Motivations & Core Pain Points    |
-+---------------------+-------------------------------+--------------------------------------------+
-| **Rohan (Driver)**  | • 31-year-old tech worker     | • Needs guaranteed parking near meetings.  |
-| Daily Urban Commuter| • Drives mid-size SUV (Creta) | • Frustrated by 20-min parking hunts.      |
-|                     | • High UPI usage (GPay/PhonePe)| • Wants transparent pricing & instant QR. |
-+---------------------+-------------------------------+--------------------------------------------+
-| **Mrs. Rao (Owner)**| • 58-year-old homeowner       | • Has 2 empty gated driveway slots daily.  |
-| Residential Landlord| • Independent villa in Koram. | • Wants extra monthly passive income.      |
-|                     | • Values safety & peace of mind| • Terrified of unauthorized trespassers.  |
-+---------------------+-------------------------------+--------------------------------------------+
-| **Vikram (Manager)**| • 42-year-old facility manager| • 35 commercial basement bays empty weekends|
-| Commercial Operator | • Manages multi-tenant building| • Needs automated accounting & ledgering. |
-|                     | • Tech-comfortable            | • Requires strict guard access controls.   |
-+---------------------+-------------------------------+--------------------------------------------+
-| **Bahadur (Guard)** | • 35-year-old security guard  | • Manages residential / commercial gate.   |
-| Gate Attendant      | • Uses budget Android phone   | • Needs dead-simple, 1-tap QR scanning.    |
-|                     | • Hindi/Kannada speaker       | • Cannot deal with complex UI or slow apps.|
-+---------------------+-------------------------------+--------------------------------------------+
++---------------------------------------------------------------------------------------+
+|                               PRODUCT ROADMAP PHASING                                 |
++---------------------------------------------------------------------------------------+
+| SPRINT 0 & 1: Foundational Core Architecture                                          |
+| - PostgreSQL DDL with PostGIS & btree_gist exclusion constraints                      |
+| - Double-entry ledger with immutability triggers (trg_verify_journal_balance)         |
+| - FastAPI modular monolith scaffolding and Redis state engine                         |
+| - Two-Tier Hold Expiration Engine (5s worker + inline sweep)                          |
+| - Automated Pytest concurrency test suite covering TS-01 through TS-20                |
++---------------------------------------------------------------------------------------+
+| SPRINT 2 & 3: Mobile Experience & Payment Integration                                 |
+| - Single Flutter binary with dynamic role shells (Driver, Owner, Guard, Ops)          |
+| - Firebase Phone Authentication & JWT token exchange                                  |
+| - Razorpay UPI Intent checkout & durable webhook idempotency engine                   |
+| - Entry and Exit QR credential generation and guard scanner engine                    |
+| - Offline basement manual exception protocol with local SQLite queue                  |
++---------------------------------------------------------------------------------------+
+| SPRINT 4 & 5: Field Operations, Pilot Onboarding & Launch                             |
+| - Property verification workflow & S3 encrypted document upload                       |
+| - GPRP arrival incident recovery & 6-stage asynchronous refund lifecycle              |
+| - Owner scheduled batch payouts via corporate bank IMPS under MoR status              |
+| - Closed pilot in Koramangala / Indiranagar / HSR Layout (200 parking bays)           |
++---------------------------------------------------------------------------------------+
+| PHASE 2 (Post-Pilot Strategic Extensions):                                            |
+| - Razorpay Route automated linked-account split payouts (upon >₹40L turnover)         |
+| - Multi-day and recurring monthly parking subscriptions                               |
+| - Barrier-gate hardware relay integrations & ANPR camera pilot                        |
+| - EV charging electrical sub-meter billing integration                                |
++---------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 7. Goals and Non-Goals
+## 10. Product Differentiators
 
-### 7.1 Measurable Product Goals (MVP)
-1. **Zero Double-Bookings:** 100% transactional exclusion of overlapping bookings on the same physical space via PostgreSQL exclusion constraints (`EXCLUDE USING gist`).
-2. **Sub-300ms Search Latency:** Enable drivers to discover verified available spaces within a 5km radius in less than 300ms (P95).
-3. **Under 3-Second Gate Clearance:** Security guards validate a booking QR code and open the gate in less than 3 seconds via native camera barcode scanning.
-4. **98%+ Successful Arrival Rate:** Over 98% of confirmed reservations result in smooth, unobstructed physical parking sessions.
-5. **100% Authoritative Payment Reconciliation:** Zero bookings confirmed without authoritative backend cryptographic verification of Razorpay webhook signatures or server-to-server polling proofs.
-6. **Automated Recovery Triggering:** 100% of reported arrival failures initiate the Guaranteed Parking Recovery Protocol (GPRP) within 15 seconds.
+Gadispot establishes four defensible, measurable capabilities:
 
-### 7.2 Explicit Non-Goals (Strictly Excluded from MVP)
-1. **No Public Web Portal:** No customer-facing desktop or web application. SmartPark is 100% mobile-native (Flutter).
-2. **No Mandatory IoT Hardware or Boom Barriers:** No requirements for owners to install smart barrier gates, magnetic loop detectors, or ultrasonic bay sensors. Verification is hardware-agnostic via guards and mobile devices.
-3. **No Automatic Number Plate Recognition (ANPR):** No deployment of computer vision or edge camera hardware for license plate recognition in MVP.
-4. **No Proprietary Digital Wallet or Escrow Holding:** SmartPark will not issue stored-value balances or act as an unlicensed payment intermediary. All monetary flows utilize RBI-compliant licensed payment aggregators.
-5. **No Speculative Dynamic Pricing Surges:** Rates are fixed explicitly by property owners (hourly base rates) with predictable rules. No black-box machine-learning pricing surges in the MVP.
-6. **No Monthly Long-Term Lease Contracts:** Focus is exclusively on hourly, short-duration parking (1 to 24 hours). Monthly subscriptions and corporate fleet accounts are deferred to P2.
+### 1. Multi-Source Availability Intelligence (MSAI)
+Availability is computed dynamically across 7 operational signals:
+$$\text{MSAI Availability} = f(\text{Schedule}, \text{Blackouts}, \text{Bookings}, \text{Active Holds}, \text{Sessions}, \text{Incidents}, \text{Buffers})$$
+The system enforces **pessimistic availability**: any signal discrepancy (such as an open schedule but an active guard obstruction report) immediately suppresses the slot from search results.
 
----
-
-## 8. Product Scope & Functional Boundary
-
-```
-+---------------------------------------------------------------------------------------------------+
-|                                  MVP FUNCTIONAL BOUNDARY                                          |
-+------------------------------------+--------------------------------------------------------------+
-| IN SCOPE (Mandatory P0 MVP)        | OUT OF SCOPE (Deferred to P1 / P2)                           |
-+------------------------------------+--------------------------------------------------------------+
-| • Single Flutter App (iOS/Android) | • Desktop customer booking web portal                        |
-| • Firebase Phone Auth (SMS OTP)    | • ANPR edge camera gate hardware                             |
-| • Vehicle Management (2W / 4W)     | • Automated boom barriers / IoT floor sensors                |
-| • PostGIS Proximity Search (3km)   | • Dynamic surge pricing machine learning models              |
-| • Interval-Aware Holds (5-min TTL) | • EV charging session electrical billing                     |
-| • PostgreSQL GiST Concurrency Lock | • Monthly subscription passes / Corporate fleet billing      |
-| • Razorpay UPI Intent & Dynamic QR | • Multi-city expansion outside Bengaluru pilot               |
-| • Raw HMAC Webhook Verifier        | • Proprietary stored-value consumer wallet balances          |
-| • Opaque Single-Use Access QR      | • Automated OCR parsing of property deeds                    |
-| • Guard Mobile Camera Scanner      | • Multi-entry / multi-exit commuter passes                   |
-| • Controlled Offline Gate Fallback |                                                              |
-| • Basic GPRP 500m Proximity Search |                                                              |
-| • Double-Entry Append-Only Ledger  |                                                              |
-| • Weekly Payout Batch Transfers    |                                                              |
-| • Property Authorization Audit     |                                                              |
-| • FCM Transactional Push Alerts    |                                                              |
-+------------------------------------+--------------------------------------------------------------+
-```
-
----
-
-## 9. Mobile-Only Product Strategy
-
-### 9.1 Strategic Rationale
-1. **Context of Use:** Drivers search and book parking from their smartphones while in transit. Guards operate physically at gates where desktop workstations are completely absent. Owners manage availability and review check-ins on mobile devices.
-2. **Hardware Capabilities:** The core experience relies on hardware sensors: GPS/Geolocation for proximity search, high-resolution Camera for guard QR scanning, and native Push Notifications (FCM) for gate alerts.
-3. **Single Cross-Platform Codebase:** Flutter provides 60fps native performance across Android and iOS while sharing 100% of the business logic, state management, and API client networking code.
-4. **Targeted Mobile-First API Boundary:** Eliminating public browser booking portals removes browser-specific XSS and iframe clickjacking vulnerabilities, directing all traffic through authenticated, rate-limited mobile API gateways.
-
----
-
-## 10. Role and Permission Model (RBAC)
-
-SmartPark enforces strict Role-Based Access Control (RBAC) combined with Object-Level Authorization:
-
-| Capability / API Operation | Driver | Space Owner | Security Guard | Platform Ops |
-|---|---|---|---|---|
-| Register / Authenticate via Phone OTP | ✅ | ✅ | ✅ | ✅ |
-| Add / Manage Personal Vehicles | ✅ | ❌ | ❌ | ❌ |
-| Search & Discover Parking Inventory | ✅ | ✅ | ❌ | ✅ |
-| Create Booking Hold & Initiate Payment | ✅ | ❌ | ❌ | ❌ |
-| View Issued Access QR Token | ✅ (Own) | ❌ | ❌ | ✅ (Audit) |
-| Cancel Booking (Per Policy) | ✅ (Own) | ❌ | ❌ | ✅ (Override)|
-| Register Property & Define Parking Bays | ❌ | ✅ | ❌ | ❌ |
-| Upload Legal Authorization Documents | ❌ | ✅ | ❌ | ❌ |
-| Set Availability Schedules & Hourly Pricing | ❌ | ✅ (Own) | ❌ | ❌ |
-| Assign Security Guards to Property | ❌ | ✅ (Own) | ❌ | ❌ |
-| View Property Revenue & Payout Ledger | ❌ | ✅ (Own) | ❌ | ✅ (All) |
-| Scan & Authoritatively Validate Access QR | ❌ | ❌ | ✅ (Assigned) | ✅ |
-| Record Physical Vehicle Entry & Exit | ❌ | ❌ | ✅ (Assigned) | ❌ |
-| Report Space Blocked / Arrival Incident | ✅ (Own) | ✅ (Own) | ✅ (Assigned) | ✅ |
-| Review & Approve Property Authorization Proof | ❌ | ❌ | ❌ | ✅ |
-| Trigger Manual Emergency Refund | ❌ | ❌ | ❌ | ✅ |
-| Suspend Malicious Listing or User Account | ❌ | ❌ | ❌ | ✅ |
-
----
-
-## 11. User Journeys & End-to-End Workflows
-
-All user flows adhere to the re-engineered architectural specifications documented in [`docs/product/USER_FLOWS.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/product/USER_FLOWS.md):
-- **Journey 1: Driver Search-to-Completion:** Proximity search -> 5-min interval hold -> UPI checkout -> Late Payment Resolution Protocol -> Opaque Access QR -> Guard scan check-in -> Departure -> Rating.
-- **Journey 2: Owner Onboarding:** Property registration -> Precise geo-pinning -> Tiered document proof upload -> Ops human audit -> Schedule/pricing activation.
-- **Journey 3: Guard Verification:** Camera barcode scan -> Online DB validation -> Admit vehicle -> Controlled offline manual fallback in basements -> Exit logging.
-- **Journey 4: Failure Recovery (GPRP):** Bay obstruction report -> 500m proximity search -> Alternative bay offer -> Driver acceptance / 100% automated refund fallback.
-
----
-
-## 12. Screen Inventory & UX Specifications
-
-The Flutter application implements 20 core mobile screens documented in [`docs/product/SCREEN_REQUIREMENTS.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/product/SCREEN_REQUIREMENTS.md):
-- **Driver Views:** `SCR-101` Explore Map, `SCR-102` Space Details, `SCR-103` Booking Review, `SCR-104` Access Pass, `SCR-105` Active Session, `SCR-106` Session Rating.
-- **Owner Views:** `SCR-201` Operations Dashboard, `SCR-202` Property Setup & Bay Scaffolding, `SCR-203` Operating Hours & Pricing, `SCR-204` Earnings & Payouts.
-- **Guard Views:** `SCR-301` Camera Viewfinder, `SCR-302` Admit/Deny Result Modal, `SCR-303` Shift Schedule (Offline Cache), `SCR-304` Incident Form.
-- **Operations Views:** `SCR-401` Property Legal Review Queue, `SCR-402` Incident Triage & Dispute Override.
-
----
-
-## 13. Authoritative Operational Policy Table
-
-To eliminate cross-document contradictions, this table serves as the **sole authoritative reference** for operational rules across SmartPark Exchange.
-
-| Policy Code | Operational Domain | Rule Definition | Default Baseline Value | Configurability | Enforcement Mechanism |
-|---|---|---|---|---|---|
-| **POL-DUR-01** | Booking Duration | Minimum continuous reservation duration | **30 Minutes** | Global Config | API Validation on `/bookings/hold` |
-| **POL-DUR-02** | Booking Duration | Maximum continuous reservation duration | **24 Hours (Configurable by property)** | Property Config | API Validation on `/bookings/hold` |
-| **POL-DUR-03** | Advance Window | Maximum future advance booking window | **7 Days** | Global Config | API Validation on search & hold |
-| **POL-BUF-01** | Turnover Buffer | Mandatory buffer between consecutive bookings | **15 Minutes** | Property Config | MSAI Engine query filter |
-| **POL-HLD-01** | Checkout Hold | Temporary reservation lifespan during checkout | **480 Seconds (8 Minutes)** | Global Config | PostgreSQL Two-Tier Expiration + Redis UI Timer |
-| **POL-ARR-01** | Early Arrival | Permitted early arrival window before start time | **15 Minutes Prior** | Global Config | Guard Scan API validation |
-| **POL-ARR-02** | Late Arrival | Grace period before booking transitions to NO-SHOW | **30 Minutes Past Start** | Global Config | Automated Background Worker |
-| **POL-DEP-01** | Departure Grace | Grace period to exit after scheduled end time | **15 Minutes Past End** | Global Config | Guard Exit Scan API validation |
-| **POL-OST-01** | Overstay Billing | Penalty rate applied when exceeding departure grace | **1.5x Base Hourly Rate** | Global Config | Computed in 30-min incremental blocks |
-| **POL-CAN-01** | Free Cancellation| Full refund window (net of gateway fee) | **> 2 Hours Before Start** | Global Config | Automated Cancellation Evaluator |
-| **POL-CAN-02** | Partial Refund | 50% refund window | **30 Minutes to 2 Hours Before Start** | Global Config | Automated Cancellation Evaluator |
-| **POL-CAN-03** | Non-Refundable | Zero refund window (Host retains full earnings) | **< 30 Minutes Before Start** | Global Config | Automated Cancellation Evaluator |
-| **POL-RAD-01** | Search Radius | Default geographic discovery radius | **3 Kilometers (Expandable to 5 km)** | User Config | PostGIS `ST_DWithin` spatial filter |
-| **POL-GPR-01** | Recovery Radius | Maximum search distance for GPRP alternative bay | **500 Meters Walking** | Global Config | GPRP PostGIS spatial query |
-| **POL-GPR-02** | Price Subsidy | Maximum platform-subsidized price difference | **Up to ₹100.00 Total** | Business Config | GPRP Transfer Accounting Engine |
-| **POL-POT-01** | Owner Settlement| Minimum accumulated balance required for payout | **₹500.00 Net Payable** | Global Config | Weekly Payout Batch Engine |
-| **POL-POT-02** | Settlement Day | Day of week when batch disbursements execute | **Tuesdays 02:00 IST** | Global Config | Scheduled Cron Worker |
-
-
----
-
-## 14. Authentication and OTP
-
-### 14.1 AUTH-001: Mobile Phone Authentication Lifecycle
-SmartPark implements passwordless mobile phone authentication as the primary identity mechanism.
-- **Phone Number Format:** E.164 standard format with `+91` prefix for India (e.g., `+919876543210`).
-- **Client OTP Verification:** Handled natively on the Flutter handset using **Firebase Phone Authentication** SDK. Firebase leverages native Android Play Integrity APIs and iOS APNs remote notifications to perform automated SMS retrieval and bot detection.
-- **Authoritative Backend Token Verification:**
-  1. The Flutter mobile app NEVER sends an OTP to the backend. The app verifies the OTP directly with Firebase and obtains an ephemeral Firebase ID Token (JWT).
-  2. The mobile app submits the ID token to the FastAPI backend via `POST /api/v1/auth/session`.
-  3. The backend executes `firebase_admin.auth.verify_id_token(id_token)`:
-     - Validates cryptographic signature against Google's public x509 certificates.
-     - Confirms token expiration (`exp > now()`).
-     - Validates project audience (`aud == FIREBASE_PROJECT_ID`).
-     - Extracts verified phone number string.
-  4. The backend queries `users` table:
-     - If phone exists, retrieves profile and active roles.
-     - If phone is new, inserts new `User` record with default role `DRIVER`.
-  5. Backend mints an internal SmartPark Bearer Access Token (JWT, 60-minute TTL) and Refresh Token (UUIDv4, 30-day TTL stored in secure Redis cache).
-  6. The client stores the internal tokens in `flutter_secure_storage` (Android KeyStore / iOS Keychain).
-
-### 14.2 AUTH-002: Abuse Prevention and Rate Limiting
-- **Phone Rate Limiting:** Maximum 3 OTP requests per phone number within any 15-minute sliding window. Exceeding triggers HTTP 429 Too Many Requests.
-- **Resend Cooldown:** Mandatory 60-second cooldown timer enforced on both client UI and backend between consecutive OTP dispatches.
-- **Plaintext OTP Prohibition:** Under zero circumstances does the SmartPark database or API generate, transmit, or store plaintext SMS OTP codes.
-
-### 14.3 AUTH-003: Staff Operations Two-Factor Authentication (TOTP)
-- Privileged operations and administrative personnel accessing legal document audits, dispute overrides, or payout releases must provide an RFC 6238 Time-Based One-Time Password (TOTP) verified via **PyOTP**.
-- PyOTP is utilized exclusively for internal 2FA authenticator apps (Google Authenticator / Authy), **NOT** for customer SMS delivery.
-
----
-
-## 15. Property Onboarding
-
-### 15.1 PROP-001: Property Profile & Geo-Location Anchoring
-- **Feature ID:** `PROP-001`
-- **Objective:** Enable property owners and managers to register real estate assets with geographic coordinates.
-- **Data Attributes Required:** Property Name, Address, City, Pincode, Property Type (`RESIDENTIAL_DRIVEWAY`, `APARTMENT_SOCIETY`, `COMMERCIAL_BUILDING`, `OPEN_PLOT`).
-- **Precision Geocoding:** Owner drops a pin on the interactive Google Map widget to capture high-precision latitude and longitude, stored as PostGIS `GEOGRAPHY(Point, 4326)` in PostgreSQL.
-- **Gate Access Instructions:** Free-text operational notes for drivers (e.g., "Enter via Gate 2; inform security you are parking in Visitor Bay 3").
-
----
-
-## 16. Authorization Verification
-
-### 16.1 AUTHZ-001: Tiered Legal Evidence Framework
-Physical access to a parking bay does not establish the legal right to monetize it. To shield drivers, property owners, and the platform from civil disputes and trespassing claims, SmartPark enforces tiered evidence audits:
-
-| Ownership Category | Legal Basis | Mandatory Document Evidence Required |
-|---|---|---|
-| **Individual Private Owner** | Freehold Title | 1. Property Tax Assessment Receipt (Current Fiscal Year) OR Registered Sale Deed, AND<br>2. Electricity/Water Bill matching owner legal name. |
-| **Residential Tenant** | Leasehold Tenancy | 1. Registered Tenancy Agreement showing allocated parking clause, AND<br>2. Written Landlord Subletting No-Objection Certificate (NOC). |
-| **Apartment Society Member** | Housing Society Allotment | 1. Share Certificate / Allotment Letter specifying bay number, AND<br>2. Society Management Committee No-Objection Certificate (NOC). |
-| **Commercial Facility Manager** | Building Operations | 1. Business Registration (GSTIN / Certificate of Incorporation), AND<br>2. Property Management Agreement / Power of Attorney authorizing monetization. |
-| **Authorized Parking Operator** | Concession Contract | 1. Municipal Concession Agreement or Commercial Lease, AND<br>2. Trade License & Commercial GST Registration. |
-
-### 16.2 AUTHZ-002: Verification Gatekeeper
-- Uploaded legal documents are stored in an encrypted private S3 bucket, accessible only via temporary 15-minute presigned URLs generated for authorized operations reviewers.
-- **Non-Negotiable Rule:** A parking space CANNOT transition to `PUBLISHED` or appear in search results while property authorization status is `DRAFT`, `PENDING_REVIEW`, `REJECTED`, or `SUSPENDED`.
-
----
-
-## 17. Parking Space Management
-
-### 17.1 SPC-001: Discrete Bay Hierarchy & Dimension Constraints
-Each physical parking space is modeled as a distinct entity linked to its parent property:
-- **Bay Identifier:** Human-readable label (e.g., "Slot 1", "Bay B-4").
-- **Space Type:** `COVERED`, `OPEN`, `BASEMENT`.
-- **Vehicle Compatibility Enum:**
-  * `TWO_WHEELER`: Motorcycles, scooters, mopeds.
-  * `FOUR_WHEELER_COMPACT`: Hatchbacks and compact cars (length < 4.0m, e.g., Swift, i10).
-  * `FOUR_WHEELER_SEDAN`: Standard sedans and compact SUVs (length < 4.6m, e.g., City, Creta).
-  * `FOUR_WHEELER_LARGE`: Full-size SUVs, minivans, pickup trucks (e.g., Innova, Fortuner).
-- **Physical Clearance Attributes:** Maximum height clearance in meters (mandatory for basement spaces).
-- **EV Amenities:** Boolean flag indicating dedicated Level 2 AC charger availability.
-
----
-
-## 18. Search and Discovery
-
-### 18.1 DISC-001: Spatial PostGIS Proximity Matching
-- **Spatial Query:** Discovery search executes PostGIS spatial indexing (`ST_DWithin`) against the property `location` column over a default 3,000-meter radius (user-expandable up to 5,000 meters per `POL-RAD-01`):
-  ```sql
-  SELECT p.*, ps.*, pr.hourly_rate_paise
-  FROM properties p
-  JOIN parking_spaces ps ON p.id = ps.property_id
-  JOIN pricing_rules pr ON ps.id = pr.parking_space_id
-  WHERE ST_DWithin(p.location, ST_MakePoint(:search_lon, :search_lat)::geography, :radius_meters)
-    AND p.authorization_status = 'APPROVED'
-    AND ps.is_active = TRUE
-    AND fn_check_vehicle_bay_compatibility(
-        :driver_vehicle_category,
-        ps.space_type::text,
-        ps.length_meters,
-        ps.width_meters,
-        ps.height_clearance_meters,
-        ps.has_ev_charging,
-        :driver_requires_ev
-    );
-  ```
-- **Performance Target:** Sub-300ms response time at P95 across 500 active bays (proposed engineering SLO).
-
----
-
-## 19. Availability Intelligence (MSAI)
-
-### 19.1 AVAIL-001: Multi-Signal Synthesis & Pessimistic Safety
-The Multi-Source Availability Intelligence engine evaluates 7 operational signals:
-1. Owner weekly recurring operating schedule.
-2. Owner manual blackout windows.
-3. Confirmed database reservations in `space_reservations`.
-4. Active 300-second temporary holds enforced by PostgreSQL GiST constraints.
-5. Active guard-verified check-in sessions.
-6. Guard obstruction reports submitted within the last 4 hours.
-7. Mandatory 15-minute turnover buffers between consecutive bookings.
-
-**Pessimistic Safety Invariant:** When evidence conflicts (e.g., calendar shows available, but guard reported an obstruction), the engine forces an `UNCERTAIN` or `BLOCKED` state. Inventory is never optimistically sold.
-
----
-
-## 20. Booking and Hold Management
-
-### 20.1 BOOK-001: Unified Reservation Data Model
-SmartPark records all temporary holds, confirmed bookings, and active sessions in a single authoritative PostgreSQL table: `space_reservations`.
-
+### 2. Mathematical GiST Concurrency Engine
+Speculative inventory locking is eliminated at the database storage engine layer using PostgreSQL range types (`tstzrange`) and GiST exclusion constraints:
 ```sql
-CONSTRAINT prevent_overlapping_active_reservations
-EXCLUDE USING gist (
-    parking_space_id WITH =,
-    time_window WITH &&
-) WHERE (status IN ('ACTIVE_HOLD', 'CONFIRMED', 'ACTIVE_SESSION', 'MAINTENANCE_BLOCK', 'OWNER_BLACKOUT'));
+EXCLUDE USING gist (parking_space_id WITH =, time_window WITH &&)
+WHERE (status IN ('ACTIVE_HOLD', 'CONFIRMED', 'ACTIVE_SESSION', 'MAINTENANCE_BLOCK', 'OWNER_BLACKOUT'))
+```
+Two concurrent requests for overlapping intervals on the same physical bay are mathematically serialized; exactly one commits and the other receives an immediate HTTP 409 Conflict.
+
+### 3. Guaranteed Parking Recovery Protocol (GPRP)
+If a reserved bay is obstructed upon driver arrival, the system executes an atomic 8-step recovery workflow: reserving an alternative bay within a 500m radius with zero incremental driver cost, or automatically initiating a 100% full refund if no alternative exists or the driver declines within 180 seconds.
+
+### 4. Immutable Double-Entry Ledger
+Monetary integrity is enforced through two-tier `journal_entries` and `journal_lines` tables. Every transaction is balanced ($\sum \text{Debits} = \sum \text{Credits}$), posted entries and lines are strictly immutable (`REVOKE UPDATE, DELETE`), and parent-row locking eliminates concurrency races during posting.
+
+---
+
+## 11. Core User Journeys
+
+### 11.1 Driver Search-to-Completion Journey
+```
+[ Open App ] -> [ Proximity Search (3km) ] -> [ Select Bay & Review Terms ]
+      |
+      v
+[ Tap 'Book This Bay' ] -> [ Acquire 480s GiST Hold ] -> [ Launch UPI Intent ]
+      |
+      v
+[ UPI PIN Authorized ] -> [ Webhook Verified ] -> [ Issue Entry & Exit QR Pass ]
+      |
+      v
+[ Drive to Gate ] -> [ Guard Scans Entry QR ] -> [ Gate Opens / Session Active ]
+      |
+      v
+[ Park Vehicle ] -> [ Depart Gate ] -> [ Guard Scans Exit QR ] -> [ Session Closed ]
 ```
 
-### 20.2 BOOK-002: Two-Tier Deterministic Expiration Engine
-Because PostgreSQL partial exclusion constraints maintain index locks as long as a row has `status = 'ACTIVE_HOLD'`, expired holds do not leave the exclusion constraint automatically upon timestamp passage. To resolve this deterministically:
-1. **Tier 1 (Active Scheduled Worker):** A background worker runs every 5 seconds, identifies holds where `hold_expires_at <= CLOCK_TIMESTAMP()`, and atomically transitions them to `EXPIRED_HOLD` in batches (`FOR UPDATE SKIP LOCKED`).
-2. **Tier 2 (Inline Opportunistic Sweep):** Every `POST /bookings/hold` transaction executes an inline opportunistic update clearing stale holds on the target space immediately before attempting insert.
-Competing reservations are permitted only after this transition commits. Redis TTL is strictly a client countdown aid and has zero authority over inventory locks.
+### 11.2 Space Owner Onboarding Journey
+```
+[ Register via Phone ] -> [ Add Property Details ] -> [ Add Parking Bays ]
+      |
+      v
+[ Upload Title Deed / Society NOC ] -> [ Configure Weekly Operating Schedule ]
+      |
+      v
+[ Submit Listing ] -> [ Ops Document Review ] -> [ Property Approved & Published ]
+      |
+      v
+[ Link Bank Account (Penny Drop) ] -> [ Receive Automated Weekly Batch Payout ]
+```
 
-### 20.3 BOOK-003: Late Payment Resolution Protocol (LPRP) & Multi-Stage Refund
-If a driver's 8-minute hold expires while they are authorizing payment in their UPI app, and a competing driver claims the slot:
-1. When Razorpay's `payment.captured` webhook arrives, the backend attempts to atomically transition the reservation from `EXPIRED_HOLD` to `CONFIRMED`.
-2. If another driver secured the interval, PostgreSQL raises `ExclusionViolation` (`23P01`).
-3. The system catches the error, transitions status to `RELEASED_UNFULFILLABLE`, and enters the **multi-stage refund lifecycle**:
-   `REFUND_PENDING` -> `REFUND_PROCESSING` -> `REFUNDED` (or `REFUND_FAILED`).
-4. SmartPark calls the gateway refund API, records gateway refund reference / ARN / UTR, and dispatches a transparent push notification to the driver.
-
-### 20.4 BOOK-004: Explicit Vehicle Compatibility Matrix
-Compatibility is evaluated via an explicit multidimensional matrix rather than a scalar comparison. Bay length, width, and height clearance are checked against the driver's vehicle category (`TWO_WHEELER`, `HATCHBACK`, `SEDAN`, `SUV`, `EV_FOUR_WHEELER`, `EV_TWO_WHEELER`). EV charging requirements are strictly matched against `has_ev_charging = TRUE`.
-
----
-
-## 21. Payment Lifecycle
-
-### 21.1 PAY-001: End-to-End Financial Orchestration
-1. **Hold Acquisition:** Driver initiates hold; backend inserts row into `space_reservations` with status `ACTIVE_HOLD` and `hold_expires_at = now() + 480s` (strictly 8 minutes).
-2. **Order Creation:** Backend generates Razorpay Order via `POST /v1/orders` specifying amount in paise and linking `reservation_id` in notes.
-3. **Client Checkout:** Flutter launches Razorpay Checkout SDK via UPI Intent with parameter `close_by` set to 480 seconds.
-4. **Server Webhook Verification:** Gateway dispatches `payment.captured`. Backend verifies raw HMAC-SHA256 signature, records and deduplicates event in PostgreSQL `payment_webhook_events` table (enforcing durable database idempotency), and atomically confirms the booking.
-5. **No Frontend Trust:** Flutter client callbacks are treated as untrusted hints. State transitions execute exclusively upon server-side webhook verification.
-
----
-
-## 22. UPI Integration
-
-### 22.1 UPI-001: Native UPI Intent & Dynamic QR Flows
-- **UPI Intent (Primary Mobile Flow):** Razorpay Flutter SDK queries device package managers for installed UPI apps (`net.one97.paytm`, `com.google.android.apps.nbu.paisa.user`, `com.phonepe.app`) and triggers native app-switching.
-- **Provider-Generated Dynamic UPI QR:** Generated via server-side payment gateway QR APIs with explicit 480-second TTL to match the booking hold window. (Dynamic UPI QR operates via standard UPI intent rails and is distinct from legacy multi-bank BharatQR).
-- **Static Merchant QR Ban:** SmartPark strictly prohibits static unlinked merchant QR codes.
+### 11.3 Guard Gate Validation Journey
+```
+[ Guard Login ] -> [ Select Assigned Property ] -> [ Open Camera Scanner ]
+      |
+      v
+[ Scan Driver Entry QR ] -> [ Backend Validates Token & Schedule ]
+      |
+      +---> Online Success: Screen Flashes BOLD GREEN with Bay Number -> Open Gate
+      |
+      +---> Replay Scan: Screen Flashes BOLD RED "QR Already Used" -> Deny Gate
+      |
+      +---> Basement Offline: Match License Plate against Local Cached Schedule ->
+            Capture Vehicle Photo -> Grant Manual Admission -> Queue Async Sync
+```
 
 ---
 
-## 23. Payment QR
+## 12. Functional Requirements
 
-### 23.1 PQR-001: Lifecycle of the Financial Payment QR
-- **Issuer:** Payment Gateway API (Razorpay / Cashfree).
-- **Consumer:** Driver UPI mobile application.
-- **Payload:** NPCI UPI standard URI (`upi://pay?pa=...&am=...&tr=...`).
-- **Lifespan:** Exactly 480 seconds (8 minutes, synchronized with booking hold).
-- **Purpose:** Monetary settlement and fund transfer from driver bank account to aggregator transit balance.
+All functional requirements carry stable, uniquely identifiable codes formatted as `FR-<DOMAIN>-<NUMBER>`.
 
----
+### 12.1 Authentication & Identity (`FR-AUTH-xxx`)
 
-## 24. Parking Access QR & Credential Lifecycle
+#### `FR-AUTH-001`: Passwordless Mobile Phone Authentication
+- **Description:** System authenticates users via 10-digit Indian mobile numbers (+91) using telecom SMS OTP.
+- **Actor:** Driver, Owner, Guard, Operations.
+- **Preconditions:** Handset possesses active cellular connection.
+- **Main Flow:**
+  1. User enters 10-digit phone number in `SCR-002`.
+  2. Firebase Auth SDK dispatches SMS OTP via telecom gateway.
+  3. User enters 6-digit OTP in `SCR-003` (or auto-retrieved on Android).
+  4. Firebase SDK verifies OTP on handset and mints Firebase ID token.
+  5. App submits ID token to `POST /api/v1/auth/session`.
+  6. Backend validates token signature via Firebase Admin SDK and issues internal SmartPark JWT (access token: 60m TTL, refresh token: 30d TTL).
+- **Alternate Flows:** Existing user logs in directly without profile creation; new user is prompted for full name and default role.
+- **Failure Conditions:** Invalid OTP, expired OTP (>60s), rate limit exceeded (>3 attempts/15m).
+- **Business Rules:** Plaintext OTPs must NEVER be generated, received, or stored in the Gadispot database.
+- **Data Requirements:** `users` table records `id`, `phone_number`, `created_at`, `status`.
+- **Security Requirements:** Firebase Admin token verification must validate `exp`, `aud`, and `iss`.
+- **Acceptance Criteria:** Valid OTP issues JWT with HTTP 200 OK; invalid OTP returns HTTP 401 Unauthorized within 1 second.
+- **Priority:** P0 (MVP).
+- **Dependencies:** Firebase Authentication, Google Cloud Identity Platform.
 
-### 24.1 AQR-001: Complete Access Credential Lifecycle (Entry & Exit)
-SmartPark establishes that a consumed entry credential cannot be reused for exit:
-1. **Phased Credential States:** Credentials follow a strict 5-state lifecycle: `ISSUED` $\to$ `ACTIVE` $\to$ `CONSUMED` $\to$ `REVOKED` $\to$ `EXPIRED`.
-2. **ENTRY_TOKEN:** Server-minted upon booking confirmation using CSPRNG 128-bit random entropy (`spx_ent_` + `secrets.token_hex(16)`). Valid from $t_{\text{start}} - 15\text{m}$ to $t_{\text{start}} + 30\text{m}$ (arrival grace). Transitioned atomically to `CONSUMED` upon verified entry scan. Transitions to `EXPIRED` if no scan occurs by $t_{\text{start}} + 30\text{m}$ (`NO_SHOW`).
-3. **ACTIVE_SESSION:** Live parking session activated in the driver mobile app with live timer and bay navigation.
-4. **EXIT_TOKEN:** Minted and pre-cached securely in driver local storage upon check-in, enabling display even if cellular connectivity is lost in basement parking. Valid until $t_{\text{end}} + 15\text{m}$ (departure grace). Session extensions (`EXT-001`) dynamically update `valid_until` in the database and client cache. Scanned by guard upon departure to close the session (`COMPLETED`) and compute overstay billing if applicable.
-5. **Zero PII & Replay Shield:** Credentials encode zero PII. Rescanning a consumed token triggers HTTP 409 Conflict and flashes **BOLD RED** on the guard scanner.
-
----
-
-## 25. Guard Workflow & Controlled Manual Fallback
-
-### 25.1 GRD-001: High-Speed Gate Validation
-- Security guards authenticate via phone OTP and access a single-purpose camera viewfinder (`SCR-301`).
-- Scanning driver QR decodes token and executes `POST /api/v1/access/validate-scan`.
-- Backend verifies: 1) Token exists, 2) Reservation is `CONFIRMED`, 3) Property matches, 4) Current time is within arrival window, 5) Token is not `CONSUMED`.
-- Screen flashes **BOLD GREEN** with vehicle plate and bay identifier. (Sub-1.5s is an engineering Service Level Objective).
-
-### 25.2 GRD-002: Deep Basement Outage: Controlled Manual Exception
-In underground basements with zero cellular reception, a local schedule cannot authoritatively prove current booking validity (as the booking may have been cancelled, refunded, or already admitted). SmartPark treats offline admission as an **Audited Controlled Manual Exception** (`MANUAL_OVERRIDE_PENDING_RECONCILIATION`), not a verified QR scan:
-1. Guard app switches to Manual Exception Mode.
-2. Guard enters physical vehicle plate and cross-checks against locally encrypted shift schedule (stored via SQLCipher AES-256).
-3. Guard captures mandatory photo proof of the vehicle at the gate and enters driver phone last 4 digits.
-4. Guard taps "Admit on Conditional Exception", logging a cryptographically signed audit event with SHA-256 hash chaining.
-5. Upon regaining 4G/Wi-Fi connection at the surface, the app flushes pending admissions via `POST /access/reconcile-offline-admissions`. If a conflict is detected (e.g. cancelled/refunded booking), an urgent security incident is flagged to property management.
-6. **Privacy Retention Limit:** An automated S3 lifecycle policy **permanently deletes vehicle gate photos within 7 days of successful backend reconciliation**, retaining only the cryptographic event hash for permanent audit.
+#### `FR-AUTH-002`: Dynamic Mobile Role Switching
+- **Description:** Users registered as both Driver and Owner toggle active viewports without re-authenticating.
+- **Actor:** Multi-role User.
+- **Preconditions:** User is authenticated and possesses both `DRIVER` and `OWNER` roles in `user_roles`.
+- **Main Flow:** User taps profile toggle; app calls `POST /api/v1/auth/switch-role`; backend returns new JWT with updated `role` claim; Flutter dynamically re-renders active shell.
+- **Acceptance Criteria:** Role switch executes in <300ms without network logout.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-AUTH-001`.
 
 ---
 
-## 26. Parking Session Lifecycle
+### 12.2 Driver Features (`FR-DRIVER-xxx`)
 
-### 26.1 SESS-001: Active Session Tracking & State Changes
-- **Check-In Event:** Guard entry scan transitions reservation from `CONFIRMED` to `ACTIVE_SESSION`. Driver app initiates live elapsed timer.
-- **Check-Out Event:** Guard exit scan verifies departure time. If within scheduled end + 15-minute grace period, session transitions to `COMPLETED`. Bay enters 15-minute turnover buffer.
-- **Overstay Billing:** If departure exceeds the 15-minute grace period, overstay penalty (1.5x hourly rate) is billed in 30-minute blocks.
+#### `FR-DRIVER-001`: Multi-Vehicle Profile Management
+- **Description:** Driver registers and manages multiple vehicles with Indian license plate formatting.
+- **Actor:** Driver.
+- **Preconditions:** Authenticated as Driver.
+- **Main Flow:** Driver inputs registration number (regex: `^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$`), category (`TWO_WHEELER`, `HATCHBACK`, `SEDAN`, `SUV`, `EV_FOUR_WHEELER`), make, and model.
+- **Acceptance Criteria:** Valid Indian plate formats saved to `vehicles` table; invalid formats rejected with descriptive error.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-AUTH-001`.
 
-
----
-
-## 27. Cancellation and Refund
-
-### 27.1 CANC-001: Authoritative Policy Tiers
-All cancellation refund calculations follow the authoritative business policy table:
-- **More than 2 hours before start:** 100% refund of base parking fee (net of gateway fee per policy).
-- **30 minutes to 2 hours before start:** 50% refund of base parking fee.
-- **Less than 30 minutes before start:** 0% refund (host retains full earnings).
-- **Arrival failure / Host cancellation / LPRP:** 100% full refund including all fees and taxes.
-
-### 27.2 CANC-002: Multi-Stage Refund Execution
-Refunds operate through a multi-stage lifecycle (`REFUND_PENDING` -> `REFUND_PROCESSING` -> `REFUNDED` / `REFUND_FAILED`). The backend dispatches the refund request via the gateway API (`POST /v1/payments/{payment_id}/refund`), records the gateway refund ID and ARN/UTR, and polls or receives webhooks until final bank rail confirmation.
-
----
-
-## 28. Overstay and Extensions
-
-### 28.1 EXT-001: Dynamic Session Extensions
-- Drivers may request extensions (30 min or 60 min) from the active session view (`SCR-105`).
-- The backend evaluates availability for the consecutive extension interval.
-- If unbooked, a secondary payment order is generated. Upon payment, the reservation `time_window` is extended atomically.
-- **Inflexible Rule:** If another driver holds or booked the subsequent interval, the extension is strictly rejected: "Extension unavailable: Space booked by next driver."
-
-### 28.2 OST-001: Overstay Penalty Enforcement
-Drivers exceeding the 15-minute departure grace period without an approved extension are billed an overstay penalty of **1.5x the standard hourly rate** in 30-minute incremental blocks. 50% of the penalty is credited to the space owner as compensation for delay.
+#### `FR-DRIVER-002`: Proximity Search with Spatial Radius
+- **Description:** Search verified available bays based on GPS coordinates, time window, and vehicle category.
+- **Actor:** Driver.
+- **Preconditions:** Device location permission granted or manual landmark selected.
+- **Main Flow:** Driver provides lat/long, start time, end time, and vehicle category. Backend executes PostGIS ST_DWithin query filtered by MSAI availability and vehicle compatibility.
+- **Business Rules:** Default search radius is strictly 3 km, user-expandable up to 5 km maximum (`POL-RAD-01`).
+- **Acceptance Criteria:** Returns only `APPROVED` properties with available slots in <500ms for 95% of queries.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-AVAIL-001`.
 
 ---
 
-## 29. Guaranteed Parking Recovery Protocol (GPRP)
+### 12.3 Property Owner Features (`FR-OWNER-xxx`)
 
-### 29.1 REC-001: Atomic 8-Step Operational Recovery Workflow
-When a driver arrives and finds the reserved bay obstructed or unavailable:
-1. **Original Reservation Kept Intact:** Original reservation is flagged `ARRIVAL_FAILED` but remains legally tied to the driver while alternatives are evaluated.
-2. **Search Boundary Evaluation:** GPRP engine queries active, verified inventory within a **500m walking radius** (defined as a strict search boundary, not an unconditional supply promise).
-3. **Atomic Alternative Reservation:** The alternative space is reserved via an atomic transaction with a temporary hold (`FOR UPDATE SKIP LOCKED`).
-4. **Alternative Offer Creation:** The alternative bay details, photos, and walking route are presented in the app (`SCR-108`). Driver has 180 seconds to accept or decline.
-5. **Driver Explicit Acceptance:** Driver confirms acceptance within the 180-second window.
-6. **Booking Confirmation & Original Release:** System atomically confirms the alternative reservation and releases the original reservation (`status = 'REPLACED'`).
-7. **Financial Adjustment:** Platform absorbs any price difference up to ₹100 via Goodwill Subsidy Account `4020`.
-8. **Credential Revocation & Re-issuance:** Original QR credential is transitioned to `REVOKED`; a new `ENTRY_TOKEN` is minted for the alternative bay.
-*Fallback Rule (Founder Decision Q2):* If an alternative cannot be secured atomically within 500m, or if the driver declines the proposal, the system automatically transitions the reservation to `REFUND_PENDING` and dispatches a deterministic full refund of all charges and fees.
+#### `FR-OWNER-001`: Property and Parking Bay Onboarding
+- **Description:** Owner submits property location, parking space dimensions, amenities, and photos.
+- **Actor:** Owner.
+- **Preconditions:** Authenticated as Owner.
+- **Main Flow:** Owner creates property, uploads 3 mandatory photos (Entrance, Bay, Approach), specifies bay physical dimensions (length, width, clearance height), and sets base hourly rate.
+- **Acceptance Criteria:** Property saved in `DRAFT` status; spaces locked in `UNVERIFIED` status until authorization approved.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-AUTH-001`.
 
----
-
-## 30. Owner Financial Model & Unit Economics
-
-### 30.1 FIN-001: Transparent Commission & Fee Split
-Every parking fee is broken down into discrete components with unambiguous tax attribution:
-- **Base Parking Fee:** Set by space owner (e.g., ₹40.00/hr $\times$ 2 hrs = ₹80.00 base).
-- **Driver Convenience Fee:** Flat ₹10.00 billed to the customer to cover SMS and verification infrastructure.
-- **GST on Convenience Fee:** 18.0% GST on convenience fee = ₹1.80.
-- **Total Paid by Driver via UPI:** **₹91.80 (9,180 paise)**.
-- **Platform Commission:** Flat 15.0% commission on base parking = ₹12.00 (1,200 paise).
-- **GST on Platform Commission:** 18.0% GST on commission = ₹2.16 (216 paise).
-- **Total Platform Facilitation Deduction from Host:** ₹12.00 + ₹2.16 = ₹14.16.
-- **Net Property Owner Entitlement (Credit Account 2010):** Gross (₹80.00) - Facilitation (₹14.16) = **₹65.84 (6,584 paise)**.
-- **Payment Gateway MDR Expense:** 2.36% (2.0% + 18% GST) on ₹91.80 = ₹2.17 (217 paise). Absorbed by platform as an operating expense (Account `4010`).
-- **GST Output Tax Liability (Account 2030):** ₹1.80 + ₹2.16 = **₹3.96 (396 paise)** remitted to the government.
-- **Net Platform Operating Margin (P&L):** Commission (₹12.00) + Convenience Fee (₹10.00) - Gateway MDR (₹2.17) = **₹19.83 (1,983 paise)** (21.6% Net Take-Rate).
-- **Cash Flow Reconciliation Invariant:**
-  $$\text{Inflow (₹91.80)} = \text{Owner (₹65.84)} + \text{Platform Net (₹19.83)} + \text{GST (₹3.96)} + \text{MDR (₹2.17)} = ₹91.80 \quad \text{[EXACT]}$$
+#### `FR-OWNER-002`: Recurring Operating Schedule & Blackouts
+- **Description:** Owner defines recurring weekly availability windows and temporary personal blackout blocks.
+- **Actor:** Owner.
+- **Main Flow:** Owner configures daily intervals (e.g., Mon–Fri 09:00–18:00). Owner can tap "Blackout Space" to block future unbooked intervals.
+- **Business Rules:** Blackout requests cannot override existing `CONFIRMED` bookings.
+- **Acceptance Criteria:** Blackout intervals saved to `operating_schedules`; immediate conflict rejection if overlapping booking exists.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-OWNER-001`.
 
 ---
 
-## 31. Ledger and Payouts
+### 12.4 Inventory Management (`FR-INVENTORY-xxx`)
 
-### 31.1 LEDG-001: True Double-Entry General Ledger
-All monetary movements generate balancing journal entries across `journal_entries` and `journal_lines` satisfying:
-$$\sum_{\text{lines}} \text{Debits} = \sum_{\text{lines}} \text{Credits} \quad \text{and line count} \ge 2$$
-The database enforces this invariant via trigger `trg_verify_journal_balance` before any journal can transition to `POSTED`. Posted journals are permanently immutable; corrections are executed exclusively via reversing journals.
-The standard Chart of Accounts segregates:
-- `1010` Gateway Transit Account (Asset)
-- `1020` Operating Bank Account (Asset)
-- `2010` Owner Payable Liability (Liability)
-- `2020` Customer Refund Payable (Liability)
-- `2030` GST Output Tax Payable (Liability)
-- `3010` Platform Commission Revenue (Revenue)
-- `3020` Driver Convenience Fee Revenue (Revenue)
-- `4010` Payment Gateway MDR Expense (Expense)
-- `4020` GPRP Customer Recovery Subsidy Expense (Expense)
-
-### 31.2 LEDG-002: Regulatory Payout Architecture (MoR & Pilot Approach)
-- SmartPark acts as the Merchant of Record (MoR) for driver payments and bears full refund and chargeback liability.
-- Dual application is maintained for both Razorpay Route and Cashfree Marketplace.
-- If automated marketplace nodal routing is not approved by Day 1 due to turnover thresholds, owner settlements will operate via **scheduled batch bank transfers** from the platform corporate current account under strict internal KYC (PAN verification + Penny Drop bank validation) and prior bank/legal agreement (Founder Decision Q5). Direct bank transfers are not described as "escrow" accounts.
-
-### 31.3 LEDG-003: Balanced Journal Templates for Core Financial Events
-1. **Driver Payment Captured (`JRN-BK`):** Debit `1010` (₹91.80), Credit `2010` (₹65.84), Credit `3010` (₹12.00), Credit `3020` (₹10.00), Credit `2030` (₹3.96).
-2. **Gateway Settlement & MDR Deduction (`JRN-MDR`):** Debit `1020` (₹89.63), Debit `4010` (₹2.17), Credit `1010` (₹91.80).
-3. **Weekly Owner Batch Payout (`JRN-PO`):** Debit `2010` (₹65.84), Credit `1020` (₹65.84).
-4. **GST Tax Remittance (`JRN-TAX`):** Debit `2030` (₹3.96), Credit `1020` (₹3.96).
-5. **Full Cancellation Refund >2h (`JRN-CAN-100`):** Debit `2010` (₹65.84), Debit `3010` (₹12.00), Debit `3020` (₹10.00), Debit `2030` (₹3.96), Credit `1010` (₹91.80).
-6. **Partial Cancellation Refund 30m-2h (`JRN-CAN-50`):** Debit `2010` (₹32.92), Debit `3010` (₹6.00), Debit `3020` (₹5.00), Debit `2030` (₹1.98), Credit `1010` (₹45.90).
-7. **LPRP Unfulfillable Refund (`JRN-LPRP`):** Debit `2010` (₹65.84), Debit `3010` (₹12.00), Debit `3020` (₹10.00), Debit `2030` (₹3.96), Credit `1010` (₹91.80).
-8. **Failed Refund Earmarking (`JRN-FLR`):** Debit `1010` (₹91.80), Credit `2020` (₹91.80).
-9. **Chargeback Dispute Reversal (`JRN-CHG`):** Debit `2010` (₹65.84), Debit `3010` (₹12.00), Debit `3020` (₹10.00), Debit `2030` (₹3.96), Credit `1020` (₹91.80).
-10. **GPRP Price Subsidy (`JRN-SUB`):** Debit `4020` (₹30.00), Credit `2010` (₹30.00).
-11. **Overstay Penalty Billing (`JRN-OST`):** Debit `1010` (₹60.00), Credit `2010` (₹30.00), Credit `3010` (₹20.85), Credit `2030` (₹9.15).
-12. **Stale Hold Expiration (`JRN-EXP`):** Zero financial journal entry required; database inventory lock released.
-
-### 31.4 POUT-001: Progressive Marketplace Payout Transition
-- **Phase 1 (Pilot Launch):** Scheduled batch bank transfers via **RazorpayX / Cashfree Payouts API** (IMPS/NEFT) executing weekly batch settlements against penny-drop verified bank accounts for balances $\ge ₹500$ under corporate current account agreement.
-- **Phase 2 (Scale):** Programmatic marketplace splitting via **Razorpay Route** or **Cashfree Marketplace** linked accounts upon provider underwriting approval.
-- **Unified Schema:** Both phases use the identical double-entry ledger accounts (`2010 Owner Payable`), requiring zero database migration when upgrading to automated Route settlement.
+#### `FR-INVENTORY-001`: Multidimensional Vehicle Compatibility Engine
+- **Description:** Verifies that a vehicle physically fits inside a parking bay.
+- **Actor:** System.
+- **Business Rules:** Compatibility must NOT use scalar comparisons (`compatibility >= category`). Must evaluate physical dimensions:
+  $$\text{Compatible} = (\text{Bay Length} \ge \text{Veh Length} + 0.3\text{m}) \land (\text{Bay Width} \ge \text{Veh Width} + 0.4\text{m}) \land (\text{Clearance} \ge \text{Veh Height} + 0.1\text{m})$$
+- **Acceptance Criteria:** SUV attempting to book a compact hatchback bay is rejected with HTTP 422 `INCOMPATIBLE_VEHICLE_DIMENSIONS`.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-DRIVER-001`, `FR-OWNER-001`.
 
 ---
 
-## 32. Notifications
+### 12.5 Availability Intelligence (`FR-AVAIL-xxx`)
 
-### 32.1 NOTIF-001: Real-Time Event Dispatch
-Powered by **Firebase Cloud Messaging (FCM)** across Android and iOS:
-- `HOLD_EXPIRING_SOON`: Push alert at 60 seconds remaining on hold.
-- `BOOKING_CONFIRMED`: Access pass issued alert with bay identifier.
-- `SESSION_CHECKIN_SUCCESS`: Active session confirmation.
-- `SESSION_ENDING_REMINDER`: 15-minute departure countdown alert.
-- `GPRP_ALTERNATIVE_OFFERED`: Recovery alternative proposed alert.
-- `WEEKLY_PAYOUT_INITIATED`: Bank transfer UTR notification to host.
-
----
-
-## 33. Platform Operations (Admin/Ops)
-
-### 33.1 OPS-001: Restricted Operations Role
-Internal operations workflows are executed via a restricted mobile view (`SCR-401` / `SCR-402`) and secure backend CLI scripts:
-- **Property Legal Audit Queue:** Review uploaded tax receipts and society NOCs; approve or reject with structured reason codes.
-- **Incident Investigation:** Audit full timeline (Hold -> Webhook -> Scan -> Photo -> GPRP).
-- **Emergency Refund Override:** Authorized staff can trigger 100% manual refund overrides requiring TOTP 2FA.
-- **Zero Web Admin Portal:** No public or web-hosted admin dashboard exists in MVP.
+#### `FR-AVAIL-001`: Multi-Source Availability Synthesis (MSAI)
+- **Description:** Authoritative computation of slot bookability synthesizing 7 operational inputs.
+- **Actor:** System.
+- **Inputs:** 1) Owner Schedule, 2) Owner Blackouts, 3) Confirmed Bookings, 4) Active 480s Holds, 5) Active Sessions, 6) Guard Incident Reports, 7) 15-Minute Turnover Buffers.
+- **Business Rules:** Conflicting inputs force pessimistic unavailability. Stale guard reports (>4h) trigger re-inspection flags.
+- **Acceptance Criteria:** Slots overlapping confirmed bookings or active holds are strictly excluded from search results.
+- **Priority:** P0 (MVP).
+- **Dependencies:** PostgreSQL `btree_gist`.
 
 ---
 
-## 34. Database Overview
+### 12.6 Booking and Hold Management (`FR-BOOK-xxx`)
 
-### 34.1 DB-001: Relational Schema & Concurrency Locks
-- **Engine:** PostgreSQL 15+ with PostGIS and `btree_gist`.
-- **Core Entities:** `users`, `user_roles`, `vehicles`, `properties`, `property_authorizations`, `parking_spaces`, `pricing_rules`, `operating_schedules`, `guard_assignments`, `space_reservations`, `access_credentials`, `access_scans`, `ledger_entries`, `owner_payouts`, `incidents`, `alternative_offers`.
-- **Immutability:** Application database role has `INSERT` and `SELECT` grants only on `ledger_entries`. `UPDATE` and `DELETE` grants are explicitly revoked.
-- Reference: Detailed DDL and ER diagrams in [`docs/technical/DATABASE_DESIGN.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/technical/DATABASE_DESIGN.md).
+#### `FR-BOOK-001`: Atomic 480-Second Time-Window Hold
+- **Description:** Reserves a slot interval during checkout with an authoritative 480-second lifespan.
+- **Actor:** Driver.
+- **Main Flow:** Driver calls `POST /api/v1/bookings/hold`. Backend inserts into `space_reservations` with status `ACTIVE_HOLD` and `hold_expires_at = now() + interval '480 seconds'`.
+- **Concurrency Invariant:** PostgreSQL GiST exclusion constraint (`EXCLUDE USING gist`) prevents any overlapping hold or booking.
+- **Failure Conditions:** If competing driver holds slot, transaction catches `ExclusionViolation (23P01)` and returns HTTP 409 Conflict.
+- **Acceptance Criteria:** Hold created with exact 480-second countdown; concurrent collision rejected deterministically.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-AVAIL-001`.
 
----
-
-## 35. API Overview
-
-### 35.1 API-001: RESTful JSON Contracts
-- **Framework:** Python FastAPI with OpenAPI 3.1 specifications.
-- **Base URL:** `https://api.smartpark.in/api/v1`
-- **Security:** Bearer JWT auth, IDOR protection, RFC 7807 error responses.
-- **Idempotency:** Mutating endpoints strictly require `Idempotency-Key` headers (UUIDv4) cached in Redis for 24 hours.
-- Reference: Exhaustive endpoint documentation in [`docs/technical/API_SPECIFICATION.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/technical/API_SPECIFICATION.md).
-
----
-
-## 36. Security and Privacy
-
-### 36.1 SEC-001: STRIDE Threat Remediation & DPDPA Posture
-- **Zero Secrets in Mobile App:** Flutter client binary contains zero payment secrets, webhook secrets, or service account credentials.
-- **Raw Body Webhook Verification:** Verifies HMAC-SHA256 signatures directly against raw request body bytes before JSON deserialization.
-- **Phased Access Credentials:** Separate `ENTRY_TOKEN` and `EXIT_TOKEN` with true 128-bit CSPRNG entropy (`secrets.token_hex(16)`), burned atomically upon scan to eliminate QR screenshot sharing.
-- **Privacy & DPDPA Compliance:** Bilingual consent notices (English & Kannada), data minimization (no Aadhaar/DL storage; masked phone numbers in transit), and published Resident Grievance Officer details (`grievance@smartpark.in`). Retention policies (e.g. 180-day GPS purge vs statutory tax retention) and full DPDPA compliance are subject to qualified legal counsel audit.
-- **Intermediary Status:** SmartPark asserts intermediary status under Section 79 of the IT Act 2000 subject to strict compliance with the Intermediary Guidelines Rules 2021; bailment is explicitly disclaimed in user terms.
-- Reference: Comprehensive threat model in [`docs/product/SECURITY_AND_PRIVACY_REVIEW.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/product/SECURITY_AND_PRIVACY_REVIEW.md).
+#### `FR-BOOK-002`: Two-Tier Hold Expiration Engine
+- **Description:** Cleans expired holds out of the partial GiST exclusion index to release inventory.
+- **Actor:** System.
+- **Mechanics:** 1) Active Background Sweeper runs every 5 seconds executing `UPDATE space_reservations SET status = 'EXPIRED_HOLD' WHERE status = 'ACTIVE_HOLD' AND hold_expires_at < now()`, using `FOR UPDATE SKIP LOCKED`. 2) Inline Opportunistic Sweeper executes in hold creation transactions.
+- **Acceptance Criteria:** Expired holds purged within $\le 5$ seconds of expiration.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-BOOK-001`.
 
 ---
 
-## 37. Non-Functional Requirements (NFR)
+### 12.7 Payment Processing (`FR-PAY-xxx`)
 
-### 37.1 Proposed Engineering Service Level Objectives (SLOs)
-*Note: The performance metrics below represent engineering design targets (SLOs) for system sizing and load testing, not verified production benchmark results.*
+#### `FR-PAY-001`: UPI Checkout & Durable Webhook Processing
+- **Description:** Facilitates UPI payment via Razorpay with database-level durable deduplication.
+- **Actor:** Driver, Gateway.
+- **Main Flow:** Driver launches UPI Intent in mobile app. Upon authorization, gateway dispatches `payment.captured` webhook. Backend retrieves raw request bytes, validates HMAC-SHA256 signature, inserts into `payment_webhook_events` with unique constraint on `(gateway_name, gateway_event_id)`, and transitions reservation to `CONFIRMED`.
+- **Business Rules:** Mobile client payment callbacks are treated as untrusted hints. Booking confirmation strictly requires server webhook or authenticated server-to-gateway polling verification.
+- **Acceptance Criteria:** Duplicate webhooks return HTTP 200 OK without duplicate ledger postings; invalid signatures return HTTP 400.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-BOOK-001`.
 
-| NFR Metric | Engineering Design Target (SLO) | Measurement Methodology | Target SLA |
-|---|---|---|---|
-| **Discovery Search Latency** | P95 latency across 500 active bays in 3–5km radius | Locust load testing (100 concurrent requests) | **< 300 ms** (Target) |
-| **Booking Hold Acquisition** | Database GiST exclusion insert latency | P99 latency under 200 concurrent threads | **< 50 ms** (Target) |
-| **Guard QR Scan Validation** | Camera decode to green/red admission modal | P95 latency over 4G mobile cellular | **< 1.5 seconds** (Target) |
-| **API Availability Uptime** | Booking, search, and access validation APIs | Synthetic monitoring via CloudWatch/Datadog | **99.9% Uptime** (06:00 - 23:00 IST) |
-| **Mobile Battery Consumption**| Continuous camera viewfinder in Guard App | Battery drain per hour of continuous shift | **< 12% battery/hour** |
-
----
-
-## 38. Error Handling and Edge Cases
-
-### 38.1 Comprehensive 30-Scenario Edge Case Matrix
-The platform defines explicit recovery logic across all 30 failure scenarios:
-
-| Category | ID | Failure Scenario | Architectural Recovery Logic |
-|---|---|---|---|
-| **Concurrency & Inventory** | SCN-01 | Simultaneous hold requests for overlapping time | PostgreSQL GiST exclusion constraint serializes transaction; 2nd request encounters `23P01` and returns HTTP 409 Conflict. |
-| | SCN-02 | Stale hold passes 480s expiration during checkout | Two-tier expiration engine cleans row; competing booking permitted; if original pays late, LPRP triggers auto-refund. |
-| | SCN-03 | Host blocks property while active hold exists | Blackout check evaluates future bookings; active holds are protected or converted to GPRP failover. |
-| | SCN-04 | Driver requests duration < 30 minutes | API validation layer rejects request with RFC 7807 problem details (`DURATION_TOO_SHORT`). |
-| | SCN-05 | Driver requests booking > 24 hours | API validates property maximum allowed booking hours; rejects with `MAX_DURATION_EXCEEDED`. |
-| | SCN-06 | Multi-space bay iteration encounters locked row | MSAI uses `SELECT ... FOR UPDATE SKIP LOCKED` to seamlessly evaluate next compatible space without thread blocking. |
-| **Payment & Gateways** | SCN-07 | UPI payment captured after 480s hold expired (LPRP) | Database throws `23P01` on confirm; reservation marked `RELEASED_UNFULFILLABLE`; multi-stage refund initiated. |
-| | SCN-08 | Webhook delivered with invalid HMAC signature | Server rejects with HTTP 400 Bad Request; booking remains unconfirmed; security alert logged. |
-| | SCN-09 | Duplicate webhook delivered for captured payment | Database unique constraint on `payment_webhook_events(gateway_name, gateway_event_id)` catches duplicate; returns HTTP 200 OK without re-processing. |
-| | SCN-10 | Payment gateway webhook network timeout / drop | Driver client polls `GET /payments/verify-status/{order_id}`; backend queries gateway API and confirms booking. |
-| | SCN-11 | Driver payment succeeds but gateway refund times out | Outbox worker retries gateway refund API using idempotent refund reference; prevents duplicate refunds. |
-| | SCN-12 | Card chargeback / dispute initiated by driver | System posts balancing reversal journal `JRN-CHG`; deducts owner payable deficit from future payouts. |
-| **Gate Access & Security** | SCN-13 | Guard attempts scan in underground basement cellular blackout | Scanner switches to Controlled Manual Exception; verifies vehicle plate against local SQLCipher cache; logs signed entry event. |
-| | SCN-14 | Offline manual entry reconciled against cancelled booking | System flags `RECONCILIATION_CONFLICT` incident; alerts property supervisor; assesses penalty charge. |
-| | SCN-15 | Driver presents screenshot of already used QR code | Database checks `access_credentials.status = 'CONSUMED'`; throws HTTP 409 Conflict; flashes BOLD RED alert. |
-| | SCN-16 | Driver arrives earlier than 15-minute grace window | Guard scanner validates server timestamp < `valid_from`; displays "EARLY ARRIVAL: Gate opens at [Time]". |
-| | SCN-17 | Driver arrives after 30-minute late arrival grace | System marked reservation `NO_SHOW`; guard scanner flags conditional admission requiring space re-validation. |
-| | SCN-18 | Driver phone battery dies at exit gate | Guard executes manual exit override in app (`SCR-304`); inputs vehicle plate; verifies session closure. |
-| **Operations & GPRP** | SCN-19 | Reserved space physically blocked upon driver arrival | Guard/driver reports `ARRIVAL_FAILED`; bay marked `BLOCKED` in MSAI; launches atomic 8-step GPRP recovery. |
-| | SCN-20 | GPRP alternative space more expensive than original | Platform absorbs tariff difference up to ₹100 via Goodwill Subsidy Account `4020`. |
-| | SCN-21 | No alternative space available within 500m boundary | GPRP transitions reservation to `REFUND_PENDING`; dispatches 100% full refund of all charges and fees. |
-| | SCN-22 | Driver declines proposed GPRP alternative within 180s | System releases alternative hold; automatically transitions reservation to `REFUND_PENDING`. |
-| | SCN-23 | Driver overstays scheduled end + 15m departure grace | Overstay billed at 1.5× hourly rate in 30-minute blocks; automated post-session invoice generated. |
-| | SCN-24 | Driver purchases session extension during active parking | Extension interval evaluated against future bookings; confirmed atomically; `EXIT_TOKEN` validity extended. |
-| **Financial Ledger** | SCN-25 | Journal entry lines do not balance (Debits != Credits) | PostgreSQL trigger `trg_verify_journal_balance` raises exception; blocks transaction commit. |
-| | SCN-26 | User attempts to update or delete a posted journal | Immutability trigger `trg_prevent_posted_modification` aborts query; enforces append-only accounting. |
-| | SCN-27 | Owner weekly payout transfer fails at bank rail | Status marked `PAYOUT_FAILED`; funds retained in Account `2010` (Owner Payable) for next batch retry. |
-| | SCN-28 | Driver cancels reservation > 2 hours before start | System posts `JRN-CAN-100` reversing journal; dispatches 100% refund via gateway API. |
-| | SCN-29 | Driver cancels reservation 30m–2h before start | System posts `JRN-CAN-50` partial journal; refunds 50%; credits 50% retained earnings. |
-| | SCN-30 | Property owner bank account verification (penny drop) fails | System suspends payout disbursement; flags owner KYC profile for banking details correction. |
+#### `FR-PAY-002`: Late Payment Resolution Protocol (LPRP)
+- **Description:** Resolves payments captured after hold expiration without double-booking.
+- **Actor:** System.
+- **Main Flow:** If `payment.captured` arrives for an `EXPIRED_HOLD`, backend attempts atomic transition to `CONFIRMED`. If competing driver claimed the bay, PostgreSQL throws `ExclusionViolation (23P01)`. Backend catches error, marks reservation `RELEASED_UNFULFILLABLE`, and initiates automated 100% full refund (`REFUND_ELIGIBLE`).
+- **Acceptance Criteria:** Zero double-bookings occur; unfulfillable payments automatically routed to 6-stage refund pipeline.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-PAY-001`.
 
 ---
 
-## 39. Integrations
+### 12.8 Refund Management (`FR-REFUND-xxx`)
 
-### 39.1 Third-Party Integration Inventory
-SmartPark integrates strictly with vetted, enterprise-grade cloud providers:
-1. **Firebase Authentication (Google Cloud):** Native handset SMS OTP delivery, Play Integrity verification, and iOS APNs integration.
-2. **Firebase Cloud Messaging (FCM):** Transactional push notification dispatch for booking confirmations, hold expiries, and gate check-ins.
-3. **Razorpay / Cashfree Payments:** Payment order generation, UPI Intent app-switching, dynamic UPI QR rendering, raw HMAC webhook callbacks, and automated refund APIs.
-4. **RazorpayX / Cashfree Payouts API:** Penny-drop bank account validation and automated batch IMPS payouts for property owner disbursements.
-5. **Amazon Web Services (AWS ap-south-1 Mumbai):** ECS Fargate container compute, RDS PostgreSQL Multi-AZ with PostGIS, ElastiCache Redis, S3 encrypted object storage, and CloudFront CDN.
-
----
-
-## 40. Open-Source Dependency Strategy
-
-### 40.1 Pragmatic Reuse & Decoupled Adapters
-SmartPark leverages active, battle-tested open-source libraries under permissive licenses (`MIT`, `Apache-2.0`, `BSD-3-Clause`):
-- **Mobile Client:** `flutterfire` (auth & messaging), `razorpay_flutter` (UPI checkout), `qr_flutter` (pass rendering), `mobile_scanner` (camera scanning), `flutter_secure_storage` (keychain storage).
-- **Backend Core:** `fastapi` (REST framework), `sqlalchemy 2.0` + `asyncpg` (database ORM & async binary driver), `redis-py` (caching & locks), `pydantic v2` (schema validation), `pyotp` (internal staff 2FA).
-- Reference: Full repository license audit and adapter interfaces in [`docs/product/OPEN_SOURCE_INTEGRATIONS.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/product/OPEN_SOURCE_INTEGRATIONS.md).
+#### `FR-REFUND-001`: Asynchronous 6-Stage Refund Lifecycle
+- **Description:** Governs end-to-end refund processing from policy qualification through bank rail settlement.
+- **Actor:** System, Operations.
+- **State Machine:**
+  $$\text{NONE} \longrightarrow \text{REFUND\_ELIGIBLE} \longrightarrow \text{REFUND\_REQUESTED} \longrightarrow \text{GATEWAY\_ACCEPTED} \longrightarrow \text{REFUND\_PROCESSING} \longrightarrow \text{REFUND\_SETTLED} \ (\text{or } \text{REFUND\_FAILED})$$
+- **Business Rules:** Gateway acceptance (`GATEWAY_ACCEPTED`) does not equal customer receipt. Customer UI transparently displays a 5–7 business day banking rail settlement window until gateway webhook confirms `REFUND_SETTLED` with bank UTR.
+- **Acceptance Criteria:** Every refund transition records balancing double-entry ledger journals.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-PAY-001`, `FR-LEDGER-001`.
 
 ---
 
-## 41. MVP Definition
+### 12.9 QR Code Access (`FR-QR-xxx`)
 
-### 41.1 Mandatory P0 Capabilities
-The Minimum Viable Product constitutes the complete, reliable, end-to-end exchange loop:
-1. Driver registers via phone OTP and registers personal vehicle.
-2. Driver discovers verified parking bays via PostGIS spatial search (3km default, 5km max).
-3. Driver secures an 8-minute (480-second) atomic interval hold enforced by PostgreSQL GiST exclusion locks.
-4. Driver completes UPI payment via Razorpay / Cashfree Intent.
-5. Backend verifies raw HMAC webhook, persists event in `payment_webhook_events`, and issues an opaque, one-time Access QR pass.
-6. Guard scans QR at property gate, validates online, and admits vehicle.
-7. Controlled manual fallback allows entry even in dead-zone underground basements with 7-day photo retention limits.
-8. Departure exit scan completes session and logs total duration.
-9. Double-entry ledger records balanced financial journal entries.
-10. Weekly batch payout transfers net earnings to the space owner's verified bank account.
+#### `FR-QR-001`: Dynamic Opaque Access Credential Issuance
+- **Description:** Issues cryptographically unguessable, separate `ENTRY_TOKEN` and `EXIT_TOKEN` passes.
+- **Actor:** System.
+- **Entropy:** Tokens generated via 128-bit CSPRNG (`secrets.token_hex(16)`).
+- **Business Rules:** Payment QR and Access QR are completely distinct. Access QR contains zero PII and zero payment credentials.
+- **Acceptance Criteria:** Tokens unguessable; entry token valid $[t_{\text{start}}-15\text{m}, t_{\text{start}}+30\text{m})$; exit token pre-cached upon check-in.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-PAY-001`.
 
----
-
-## 42. Development Phases
-
-### 42.1 Phased Execution Timeline
-- **Sprint 1–2 (Core Scaffolding & Identity):** FastAPI modular monolith setup, PostgreSQL PostGIS schema, Redis cluster, Firebase Phone Auth, and Flutter role navigation shell.
-- **Sprint 3–4 (Inventory & Availability Engine):** Property and bay CRUD, legal document uploader, MSAI synthesis engine, and PostgreSQL GiST exclusion locks.
-- **Sprint 5–6 (Booking & Payment Loop):** 480-second atomic hold orchestrator, UPI Intent integration, raw HMAC webhook processor, and double-entry ledger.
-- **Sprint 7–8 (Guard Access & GPRP Recovery):** Phased access credentials (`ENTRY_TOKEN` & `EXIT_TOKEN`), Flutter camera viewfinder (`mobile_scanner`), check-in/out APIs, and GPRP 8-step recovery engine.
-- **Sprint 9–10 (Payouts, Testing & Field Pilot):** Weekly IMPS payout batch worker, end-to-end concurrency chaos testing, security penetration audit, and Bengaluru field pilot launch.
+#### `FR-QR-002`: Guard Gate Validation & Replay Burn
+- **Description:** Security guard scans driver QR pass to validate admission.
+- **Actor:** Guard.
+- **Main Flow:** Guard scans QR via `mobile_scanner`. Backend validates token, property binding, and temporal window. Atomically marks token `CONSUMED` and reservation `ACTIVE_SESSION`. Guard screen flashes BOLD GREEN.
+- **Failure Conditions:** Second scan of same token flashes BOLD RED: "ACCESS REJECTED: QR code already consumed".
+- **Acceptance Criteria:** Validation response delivered in <1.5s; replay attacks blocked 100%.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-QR-001`.
 
 ---
 
-## 43. Acceptance Criteria
+### 12.10 Parking Session Management (`FR-SESSION-xxx`)
 
-### 43.1 Testable Scenario Signoffs
-Detailed Given/When/Then scenarios are baselined across core domains:
-- **AC-01 (Concurrency Collision):** Two simultaneous requests for the exact same bay and interval result in exactly 1 commit and 1 PostgreSQL `ExclusionViolation` (`23P01`), returning HTTP 409 Conflict.
-- **AC-02 (Webhook Tampering):** Webhooks with altered payloads or invalid HMAC signatures are rejected with HTTP 400 Bad Request; booking remains unconfirmed.
-- **AC-03 (QR Replay Shield):** Presenting a previously scanned QR code or screenshot returns HTTP 409 Conflict and flashes BOLD RED on the guard app.
-- **AC-04 (Unverified Listing Gatekeeper):** A property in `PENDING_REVIEW` cannot publish spaces; bays are excluded from search results.
-- **AC-05 (Late Payment Asynchronous Refund):** A payment webhook arriving after 480s hold expiration where the bay was claimed by another driver triggers a deterministic multi-stage refund protocol (`REFUND_PENDING` $\to$ `REFUND_PROCESSING`), notifying driver of a 5–7 business day banking rail settlement window.
-
----
-
-## 44. Testing Strategy
-
-### 44.1 Automated Test Execution Suite (20 Mandatory High-Risk Scenarios)
-Quality assurance is enforced across all 20 mandatory high-risk test scenarios documented in [`docs/quality/TEST_STRATEGY.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/quality/TEST_STRATEGY.md):
-- `TS-01`: Concurrent Booking Race for Same Physical Space.
-- `TS-02`: Late Payment Webhook Arrival After Hold Expiry (LPRP).
-- `TS-03`: Webhook Replay Attack & Duplicate Delivery Idempotency.
-- `TS-04`: Payment Webhook Signature Tampering (Invalid HMAC).
-- `TS-05`: Offline Guard Gate Admission in Underground Cellular Dead Zone.
-- `TS-06`: Offline Reconciliation Conflict Detection (Entry on Cancelled Booking).
-- `TS-07`: QR Access Replay Attack (Screenshot Reuse).
-- `TS-08`: Double-Entry General Ledger Balance Trigger Invariant Enforcement.
-- `TS-09`: Immutable Ledger Post-Modification Rejection.
-- `TS-10`: Guaranteed Parking Recovery Protocol (GPRP) 8-Step Reallocation.
-- `TS-11`: GPRP Alternative Space Exhaustion Auto-Refund Fallback.
-- `TS-12`: Overstay Detection & Penalty Billing Calculation.
-- `TS-13`: Active Session Extension Collision with Next Consecutive Booking.
-- `TS-14`: Multi-Space Bay Iteration Allocation under High Load.
-- `TS-15`: Driver Cancellation Refund Tier Calculation (>2h, 30m-2h, <30m).
-- `TS-16`: Stale Hold Background Worker Cleanup Concurrency with Inline Sweep.
-- `TS-17`: IDOR Security Attack on Driver Access Token Endpoint.
-- `TS-18`: Bank Payout Batch Processing & Failure Handling.
-- `TS-19`: Multidimensional Vehicle Compatibility Bay Filtering.
-- `TS-20`: PostgreSQL Multi-AZ Database Failover Recovery.
+#### `FR-SESSION-001`: Parking Session Tracking & Dynamic Extension
+- **Description:** Tracks live session duration and allows drivers to extend parking subject to future availability.
+- **Actor:** Driver.
+- **Main Flow:** Driver requests 30m or 60m extension in `SCR-105`. MSAI verifies bay has no conflicting reservation. Driver pays additional fee. Database extends `time_window` and updates `EXIT_TOKEN` validity.
+- **Acceptance Criteria:** Conflicted extensions blocked; successful extensions update session and exit pass atomically.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-QR-002`.
 
 ---
 
-## 45. Product Metrics and KPIs
+### 12.11 Double-Entry General Ledger (`FR-LEDGER-xxx`)
 
-### 45.1 North Star Metric
-> **Total Monthly Successfully Completed Parking Sessions (MSCS):**  
-> *The aggregate count of unique driver reservations that complete physical check-in and checkout without an unresolved arrival failure or refund dispute.*
-
-### 45.2 Core Operational Benchmarks
-- **Search-to-Booking Conversion:** $\ge 12.0\%$
-- **Successful Arrival Rate:** $\ge 98.0\%$
-- **False-Available Error Rate:** $< 1.0\%$
-- **GPRP Resolution Rate:** $\ge 75.0\%$ resolved via alternative space.
-- **Ledger Discrepancy Rate:** $0.00\%$ (Zero mathematical tolerance).
-- **Average Gate Clearance Time:** $< 3.0$ seconds.
-
----
-
-## 46. Business Assumptions & Reconciled Unit Economics
-
-### 46.1 Financial & Operational Baseline
-All commercial calculations adhere to [`docs/product/BUSINESS_ASSUMPTIONS.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/product/BUSINESS_ASSUMPTIONS.md):
-- **Base Platform Commission:** 15.0% on gross parking fee (₹12.00 on a standard 2-hour ₹80.00 booking).
-- **Driver Convenience Fee:** Flat ₹10.00 + 18% GST (₹1.80) = ₹11.80 billed to the customer.
-- **Payment Gateway MDR Expense:** 2.36% (2.0% + 18% GST) on ₹91.80 = ₹2.17 (absorbed by platform).
-- **Net Property Owner Entitlement:** ₹80.00 - ₹14.16 commission & GST = **₹65.84**.
-- **Net GST Output Tax Payable to Govt:** ₹1.80 + ₹2.16 = **₹3.96**.
-- **Net Platform Operating Contribution:** Commission (₹12.00) + Convenience Fee (₹10.00) - Gateway MDR (₹2.17) = **₹19.83** (21.6% Net Take-Rate).
-- **Cash Flow Reconciliation Invariant:** $\text{Inflow (₹91.80)} = \text{Owner (₹65.84)} + \text{Platform Net (₹19.83)} + \text{GST (₹3.96)} + \text{MDR (₹2.17)} = ₹91.80$ [EXACT].
+#### `FR-LEDGER-001`: Immutable Balanced Financial Accounting
+- **Description:** Records all financial events in append-only double-entry journals.
+- **Actor:** System.
+- **Invariants:**
+  1. $\sum \text{Debits} = \sum \text{Credits}$ enforced by trigger `trg_verify_journal_balance` on `journal_entries`.
+  2. Immutability enforced by `trg_prevent_posted_modification` on `journal_entries` and `trg_prevent_posted_lines_mod` on `journal_lines`.
+  3. Parent-row locking (`FOR SHARE` / `FOR UPDATE`) serializes line insertion against posting.
+- **Acceptance Criteria:** Unbalanced journals rejected with DB exception; modification of posted journals or lines rejected 100%.
+- **Priority:** P0 (MVP).
+- **Dependencies:** PostgreSQL triggers.
 
 ---
 
-## 47. Risks and Mitigations
+### 12.12 Owner Payouts (`FR-PAYOUT-xxx`)
 
-| Risk Code | Risk Description | Severity | Likelihood | Architectural & Operational Mitigation |
+#### `FR-PAYOUT-001`: Scheduled Batch Bank Payouts
+- **Description:** Disburses accumulated owner earnings via scheduled weekly batch bank transfers (IMPS).
+- **Actor:** Finance Lead, System.
+- **Business Rules:** Payouts execute weekly (Tuesdays) for verified owners with balance $\ge ₹500$. Owner KYC must be validated (PAN verified + Penny-Drop bank verification matching owner name).
+- **Acceptance Criteria:** Payouts debited from Account 2010; failed transfers flagged for retry without balance loss.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-LEDGER-001`.
+
+---
+
+### 12.13 Administration & Operations (`FR-ADMIN-xxx`)
+
+#### `FR-ADMIN-001`: Property Authorization Review Queue
+- **Description:** Operations staff inspect legal ownership evidence before approving listings.
+- **Actor:** Operations Associate.
+- **Main Flow:** Ops reviews tax receipts / society NOCs via 15-minute presigned S3 URLs in `SCR-401`. Upon approval, property status transitions to `APPROVED` and spaces become searchable.
+- **Acceptance Criteria:** Unverified properties cannot be published; all approval/rejection actions logged immutably.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-OWNER-001`.
+
+---
+
+### 12.14 Security & Privacy (`FR-SEC-xxx`)
+
+#### `FR-SEC-001`: DPDPA Data Minimization & 7-Day Gate Photo Purge
+- **Description:** Enforces statutory privacy controls and automated retention purges under DPDPA 2023.
+- **Actor:** System.
+- **Mechanics:** Photos captured during offline basement gate exceptions are stored in private S3 buckets. An automated S3 Lifecycle rule permanently purges photos 7 days post-reconciliation.
+- **Acceptance Criteria:** Zero gate exception photos retained beyond 7 days in S3.
+- **Priority:** P0 (MVP).
+- **Dependencies:** AWS S3 Lifecycle.
+
+---
+
+### 12.15 Notifications (`FR-NOTIFY-xxx`)
+
+#### `FR-NOTIFY-001`: Transactional Multi-Channel Dispatch
+- **Description:** Dispatches real-time transactional push notifications (FCM / APNs) and critical SMS alerts.
+- **Actor:** System.
+- **Events:** Booking Confirmed, Hold Expiring (at 6m elapsed), Arrival Reminder (15m prior), Exit Reminder (10m prior), GPRP Alert, Payout Dispatched.
+- **Acceptance Criteria:** Push delivered in $\le 3$ seconds under standard mobile connectivity.
+- **Priority:** P0 (MVP).
+- **Dependencies:** Firebase Cloud Messaging.
+
+---
+
+### 12.16 Incident Recovery (`FR-GPRP-xxx`)
+
+#### `FR-GPRP-001`: Guaranteed Parking Recovery Protocol (GPRP)
+- **Description:** Atomic 8-step alternative space reallocation or 100% full refund upon physical bay arrival failure.
+- **Actor:** Driver, Guard, System.
+- **Main Flow:** Driver or guard reports arrival obstruction. System preserves original booking, searches compatible bay within 500m, acquires atomic hold, and presents offer to driver with 180s decision countdown. If driver accepts, booking transfers at zero incremental cost. If driver declines or timer expires, system releases alternative hold and initiates 100% full refund (`REFUND_ELIGIBLE`).
+- **Acceptance Criteria:** Recovery executed atomically without double-booking; fallback to full refund within 180 seconds.
+- **Priority:** P0 (MVP).
+- **Dependencies:** `FR-AVAIL-001`, `FR-REFUND-001`.
+
+---
+
+## 13. Owner and Property Verification
+
+To prevent fraudulent listings, unauthorized sub-letting, and trespassing disputes, Gadispot enforces mandatory legal vetting before any space becomes bookable:
+
+```
++---------------------------------------------------------------------------------------+
+|                      PROPERTY AUTHORIZATION LIFECYCLE                                 |
++---------------------------------------------------------------------------------------+
+| [ DRAFT ] Owner uploads property tax receipt, sale deed, or society NOC               |
+|      |                                                                                |
+|      v                                                                                |
+| [ PENDING_REVIEW ] Listing locked; invisible to search queries                        |
+|      |                                                                                |
+|      +---> Operations Approves -> [ APPROVED ] -> Spaces become PUBLISHED & bookable |
+|      |                                                                                |
+|      +---> Operations Rejects -> [ REJECTED ] -> Owner receives rejection reason     |
+|      |                                                                                |
+|      +---> Complaint / Dispute -> [ SUSPENDED ] -> Immediate blackout of future holds |
++---------------------------------------------------------------------------------------+
+```
+
+### Statutory Evidence Requirements:
+1. **Independent Residential Driveway:** Property Tax Assessment Receipt (current fiscal year) OR Registered Sale Deed showing applicant's name and physical address matching property geolocation.
+2. **Gated Apartment Society Bay:** Formal Housing Society (AOA/RWA) No-Objection Certificate (NOC) explicitly permitting guest vehicle parking monetization, counter-signed by society secretary.
+3. **Tenant Listings:** Tenant must upload written lease agreement containing an explicit commercial parking sublet clause signed by the property owner.
+
+---
+
+## 14. Inventory and Space Management
+
+Each parking space represents a discrete physical inventory asset characterized by:
+- **Spatial Coordinates:** Exact latitude and longitude (WGS 84 / SRID 4326).
+- **Physical Clearance:** Length, width, and vertical clearance height in millimeters.
+- **Infrastructure Attributes:** Surface type (`COVERED`, `OPEN`, `BASEMENT`), EV charging capability (`NONE`, `SLOW_AC_15A`, `FAST_DC`), CCTV coverage, gated perimeter, on-premise security guard.
+- **Operational Cadence:** Weekly recurring operating hours and owner blackout dates.
+- **Tariff Structure:** Base hourly rate (INR paise), minimum booking duration (default 30 min), maximum continuous hours (default 24h).
+
+---
+
+## 15. Availability Intelligence (MSAI)
+
+The Multi-Source Availability Intelligence engine evaluates whether parking bay $S$ is bookable for time interval $[T_1, T_2)$ through strict propositional logic:
+
+$$\text{Bookable}(S, T_1, T_2) = \text{Operating}(S, T_1, T_2) \land \neg \text{Blackout}(S, T_1, T_2) \land \neg \text{Held}(S, T_1, T_2) \land \neg \text{Booked}(S, T_1, T_2) \land \neg \text{Incident}(S)$$
+
+### Canonical Space States:
+- `AVAILABLE`: Space is unencumbered and immediately bookable for the requested interval.
+- `TEMPORARILY_HELD`: In active 480s driver checkout; excluded from other search results.
+- `BOOKED`: Confirmed reservation exists for overlapping interval.
+- `OCCUPIED`: Vehicle currently checked in and physically parked.
+- `BLOCKED`: Owner manual blackout or administrative freeze.
+- `UNVERIFIED`: Property authorization pending ops review; strictly non-searchable.
+- `UNCERTAIN`: Conflicting operational signal (e.g., active guard obstruction report).
+- `MAINTENANCE`: Physical maintenance in progress.
+- `CLOSED`: Outside owner configured operating hours.
+
+---
+
+## 16. Geospatial Discovery
+
+Discovery queries utilize PostGIS spatial indexing (`ST_DWithin` on geography coordinates):
+```sql
+SELECT ps.id, p.title, p.address, ps.hourly_rate_paise,
+       ST_Distance(p.location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) AS distance_meters
+FROM parking_spaces ps
+JOIN properties p ON ps.property_id = p.id
+WHERE p.authorization_status = 'APPROVED'
+  AND ST_DWithin(p.location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius_meters)
+  AND fn_check_vehicle_bay_compatibility(ps.id, :vehicle_id) = TRUE
+ORDER BY distance_meters ASC
+LIMIT 50;
+```
+Search radius defaults to **3 km** and is capped at **5 km** (`POL-RAD-01`).
+
+---
+
+## 17. Vehicle Compatibility
+
+Compatibility is evaluated via multidimensional spatial matching:
+
+| Vehicle Category | Maximum Vehicle Length | Maximum Vehicle Width | Required Bay Length Margin | Required Bay Width Margin | Minimum Vertical Clearance |
+|---|---|---|---|---|---|
+| **TWO_WHEELER** | 2,100 mm | 850 mm | +200 mm | +250 mm | 1,800 mm |
+| **HATCHBACK** | 4,000 mm | 1,750 mm | +300 mm | +400 mm | 1,900 mm |
+| **SEDAN** | 4,700 mm | 1,850 mm | +350 mm | +400 mm | 1,900 mm |
+| **SUV** | 5,100 mm | 1,950 mm | +400 mm | +450 mm | 2,100 mm |
+| **EV_FOUR_WHEELER** | 4,800 mm | 1,900 mm | +350 mm | +400 mm | 2,000 mm (Requires EV Charger) |
+
+---
+
+## 18. Booking and Reservation Lifecycle
+
+```
+[ DISCOVERY ] -> [ POST /bookings/hold ] -> [ ACTIVE_HOLD (480s Countdown) ]
+                                                   |
+         +-----------------------------------------+-----------------------------------------+
+         | Payment Captured in 480s                                                          | Hold Expires (480s Elapsed)
+         v                                                                                   v
+[ CONFIRMED ] (Entry & Exit Passes Issued)                                            [ EXPIRED_HOLD ] (Slot Released)
+         |                                                                                   |
+         v                                                                                   | Late Payment Arrives
+[ Driver Arrives Gate ]                                                                      v
+         |                                                                            [ LPRP Reclaim Attempt ]
+         +---> Guard Scans Entry QR -> [ ACTIVE_SESSION ]                                    |
+         |                                                                                   +---> Slot Still Empty -> [ CONFIRMED ]
+         +---> Gate Blocked -> [ GPRP Recovery Protocol ]                                    |
+                                                                                             +---> Slot Re-booked -> [ RELEASED_UNFULFILLABLE ]
+                                                                                                   (Automated 100% Refund via 6 Stages)
+```
+
+---
+
+## 19. Hold and Concurrency Rules
+
+1. **Universal Lifespan:** Checkout hold duration is strictly **480 seconds (8 minutes)** across all application components, API payloads, and database records (`POL-HLD-01`).
+2. **Rate Limiting:** Maximum **2 concurrent active holds** permitted per verified phone number. Maximum 5 hold creations per 30 minutes.
+3. **Database-Enforced Invariant:** Temporary holds are rows in `space_reservations` participating directly in the partial GiST exclusion constraint. Redis serves strictly as an auxiliary read-accelerator and countdown display cache.
+
+---
+
+## 20. Payment Lifecycle
+
+1. **Order Initiation:** Backend creates order at payment gateway with strict integer paise representation.
+2. **Client Checkout:** Flutter app launches native UPI Intent sheet (PhonePe, GPay, Paytm, BHIM).
+3. **Authoritative Capture:** Payment gateway dispatches raw `payment.captured` webhook payload.
+4. **Durable Idempotency:** Webhook event ID recorded in PostgreSQL `payment_webhook_events`. Duplicates acknowledged with HTTP 200 without side effects.
+5. **Confirmation:** Reservation atomically transitions from `ACTIVE_HOLD` to `CONFIRMED`; double-entry ledger journal posted.
+
+---
+
+## 21. Refund Lifecycle
+
+Refunds follow the canonical 6-stage asynchronous lifecycle:
+
+```
++---------------------------------------------------------------------------------------+
+|                                CANONICAL REFUND LIFECYCLE                             |
++---------------------------------------------------------------------------------------+
+| 1. [ REFUND_ELIGIBLE ]   : Cancellation policy or LPRP/GPRP failure qualifies refund. |
+| 2. [ REFUND_REQUESTED ]  : Transactional outbox queues refund API request to gateway. |
+| 3. [ GATEWAY_ACCEPTED ]  : Gateway API returns HTTP 200 with gateway refund_id.       |
+| 4. [ REFUND_PROCESSING ] : Banking rails processing transfer; 5-7 business day window. |
+| 5. [ REFUND_SETTLED ]    : Gateway webhook delivers final settlement UTR; completed.   |
+| 6. [ REFUND_FAILED ]     : Gateway/bank rejects refund; escalates to manual ops queue.|
++---------------------------------------------------------------------------------------+
+```
+
+---
+
+## 22. Double-Entry Ledger
+
+All financial movements are recorded across `journal_entries` and `journal_lines`:
+
+### Standard Chart of Accounts:
+- **1010 Gateway Transit Account (Asset):** Driver funds captured via UPI awaiting settlement to corporate account.
+- **1020 Operating Current Bank Account (Asset):** Platform corporate commercial bank account.
+- **2010 Owner Payable Liability (Liability):** Accumulated net earnings owed to space hosts.
+- **2020 Customer Refund Payable (Liability):** Pending customer refunds.
+- **2030 GST Output Tax Payable (Liability):** 18% GST collected on facilitation fees.
+- **3010 Platform Commission Revenue (Revenue):** Marketplace facilitation commission earned (15%).
+- **3020 Driver Convenience Fee Revenue (Revenue):** ₹10 convenience fee charged to drivers.
+- **4010 Payment Gateway MDR Expense (Expense):** 2.36% MDR absorbed by platform.
+- **4020 GPRP Customer Recovery Subsidy Expense (Expense):** Platform-subsidized goodwill allowances.
+
+---
+
+## 23. Owner Payouts and Reconciliation
+
+- **Merchant of Record (MoR) Model:** Gadispot acts as the MoR for all customer transactions, assuming liability for cardholder disputes and tax compliance.
+- **Phase 1 Pilot Disbursements:** Scheduled weekly batch IMPS transfers from the corporate bank account to verified owner bank accounts (PAN + Penny Drop).
+- **Settlement Invariant:** An owner balance is eligible for payout only after the corresponding parking session has transitioned to `COMPLETED` and the cancellation dispute window (24 hours) has elapsed.
+
+---
+
+## 24. QR Entry and Exit
+
+```
++---------------------------------------------------------------------------------------+
+|                        TWO DISTINCT QR SUBSYSTEMS                                     |
++------------------------------------+--------------------------------------------------+
+| 1. Dynamic Payment QR              | 2. Parking Access QR (Entry & Exit)              |
++------------------------------------+--------------------------------------------------+
+| • Generated by: Payment Gateway    | • Generated by: Gadispot Backend Engine          |
+| • Consumer: Driver UPI Mobile App  | • Consumer: Guard Mobile Scanner (mobile_scanner)|
+| • Payload: NPCI UPI URI string     | • Payload: 128-bit CSPRNG token (spx_ent_...)    |
+| • Expiry: Exactly 480s (8m)        | • Expiry: Phased (Entry vs Exit window)          |
+| • Replay: Banking switch handled   | • Replay: Database atomic state burn upon entry  |
++------------------------------------+--------------------------------------------------+
+```
+
+---
+
+## 25. Parking Session Management
+
+- **Grace Period:** 15-minute early arrival buffer ($t_{\text{start}} - 15\text{m}$) and 30-minute late arrival grace period before `NO_SHOW` transition (`POL-ARR-02`).
+- **Overstay Policy:** Exit scans occurring $>15$ minutes past scheduled departure calculate an overstay charge at **1.5× the base hourly rate** in 30-minute blocks (`POL-OST-01`).
+- **Basement Offline Mode:** In subterranean cellular dead zones, guard matches physical license plate against locally cached 8-hour shift schedule, captures vehicle photo, and logs admission locally. Photos are permanently deleted from S3 within 7 days of backend sync.
+
+---
+
+## 26. GPRP Recovery Protocol
+
+When a driver arrives but the reserved slot is obstructed:
+1. Driver or guard taps "Report Space Blocked" (`SCR-104`).
+2. Original booking remains active while backend evaluates alternative bay within 500m.
+3. System atomically acquires hold on alternative bay at zero incremental driver cost.
+4. Driver mobile renders 180-second countdown decision modal (`SCR-107`).
+5. If driver accepts, booking atomically transfers to alternative bay.
+6. If driver declines or timer reaches 00:00, alternative hold is released and system immediately initiates a 100% full refund (`REFUND_ELIGIBLE`).
+
+---
+
+## 27. Cancellation and No-Show Policies
+
+| Trigger Event | Timing Window | Refund Percentage | Owner Entitlement | Platform Fee Status |
 |---|---|---|---|---|
-| **RSK-001** | Unauthorized vehicle parks in reserved bay before driver arrives. | HIGH | HIGH | **MSAI & GPRP Failover:** Guard reports obstruction; space marked `BLOCKED`; driver rerouted to alternative within 500m or entered into deterministic multi-stage refund workflow. |
-| **RSK-002** | Razorpay Route marketplace payout approval delayed by >₹40L turnover rule. | HIGH | MEDIUM | **Automated Direct Bank Payout Fallback:** Weekly automated IMPS batch disbursements via RazorpayX / Cashfree Payouts on identical ledger schema. |
-| **RSK-003** | Drivers overstay their booked slot, blocking the next reserved vehicle. | MEDIUM | HIGH | **1.5x Overstay Penalty & 15m Buffers:** Overstaying vehicles charged 1.5x hourly rate; 15-minute buffers absorb minor traffic delays. |
-| **RSK-004** | Cellular dead zone in underground basements prevents guard scan. | HIGH | HIGH | **Controlled Manual Fallback Protocol:** Guard verifies physical license plate against locally cached shift schedule and syncs upon reconnection. |
-| **RSK-005** | Legal disputes with Apartment Associations (AOAs) regarding guest parking. | HIGH | MEDIUM | **Strict Authorization Proofs:** Mandatory submission of Society Management Committee NOC before apartment listings can be activated. |
-| **RSK-006** | Driver vehicle damaged or vandalized while parked on private property. | HIGH | LOW | **Strict Intermediary Terms of Service:** Disclaim platform and owner bailment liability under Section 79 IT Act; parking is at vehicle owner's sole risk. |
+| **Driver Cancellation** | $>2$ hours before start | **100% Refund** | ₹0.00 | Platform absorbs gateway MDR |
+| **Driver Cancellation** | 30 min to 2 hours before start | **50% Refund** | 50% of Host Share | Platform retains commission |
+| **Driver Cancellation** | $<30$ min before start | **0% Refund** | 100% of Host Share | Platform retains commission |
+| **Driver No-Show** | $>30$ min past start | **0% Refund** | 100% of Host Share | Platform retains commission |
+| **Host Cancellation** | Any time prior to arrival | **100% Full Refund** | ₹0.00 (₹100 fine assessed) | Platform absorbs MDR |
+| **Arrival Failure (GPRP)**| At arrival / obstructed bay | **100% Full Refund** | ₹0.00 | Platform absorbs MDR |
 
 ---
 
-## 48. Open Questions Registry Reference
+## 28. Incident and Dispute Management
 
-All 65 open business, legal, payment provider, technical, and operational decisions are formally cataloged, tracked, and assigned in:
-👉 [`docs/product/OPEN_QUESTIONS.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/product/OPEN_QUESTIONS.md)
-
----
-
-## 49. Future Strategic Roadmap (P1 / P2)
-
-### Phase 2: Operational Scale & Multi-City Expansion (Months 4 - 6)
-- Expansion from Bengaluru pilot to Mumbai (BKC/Andheri) and Delhi-NCR (Cyber City Gurgaon).
-- Automated CKYC verification for space owners via third-party identity APIs (Signzy / IDfy).
-- Dynamic pricing surge engine based on localized neighborhood events and rain/monsoon indicators.
-- Automated WhatsApp notifications via official Meta Cloud API.
-
-### Phase 3: Hardware & Smart Infrastructure (Months 7 - 12)
-- Edge ANPR camera integration for automated boom barrier clearance without human security guards.
-- Solar-powered ultrasonic bay occupancy sensors for automated real-time space status updates.
-- EV Charging Network integration (OCPP 1.6/2.0 protocol) allowing combined parking + charging billing.
-- Corporate employee parking management portal for enterprise office campuses.
+- **Incident Classification:** `BAY_OBSTRUCTED`, `GATE_LOCKED`, `OVERSTAY_DISPUTE`, `PROPERTY_MISREPRESENTATION`, `UNAUTHORIZED_VEHICLE`.
+- **Evidence Collection:** Mandatory timestamped photo evidence, guard badge identifier, and GPS geofence validation.
+- **SLA:** Customer disputes acknowledged within 2 hours; resolved with final determination within 24 hours.
 
 ---
 
-## 50. Final Readiness Assessment & Implementation Authorization
+## 29. Authentication and Authorization
 
-### 50.1 Mandatory Architectural Invariants
-1. **The Backend is the Single Source of Truth:** The Flutter mobile application is strictly a presentation and input capture layer. No booking confirmation, payment success state, or authorization approval may be decided client-side.
-2. **Cryptographic Proofs for All State Mutations:** Webhooks require raw HMAC-SHA256 signature verification; access passes require server-minted opaque tokens; auth sessions require Firebase Admin ID token verification.
-3. **Database-Level Double-Booking Prevention:** Concurrency is guaranteed by PostgreSQL GiST exclusion constraints (`EXCLUDE USING gist`), never by optimistic application-layer checks alone.
-4. **Separate QR Systems:** The Razorpay Payment Dynamic QR and the SmartPark Parking Access QR must never be combined, share schemas, or reuse endpoints.
-5. **No Speculative Selling:** If an operational signal reports a bay blocked or unverified, the space must be withheld from search.
+- **Primary Auth:** Phone number + SMS OTP via Firebase Auth SDK with server-side Admin SDK token verification.
+- **Session Tokens:** Internal scoped JWTs containing user UUID, active role, and 60-minute expiration.
+- **Internal Ops 2FA:** Privileged operations associates must provide an RFC 6238 TOTP code verified via PyOTP before executing document approvals or manual refund overrides.
 
-### 50.2 Implementation Authorization & External Dependencies
-This Master Product Requirements Document (`PRD.md`), along with its supporting engineering specifications (`USER_FLOWS.md`, `OPEN_QUESTIONS.md`, `OPEN_SOURCE_INTEGRATIONS.md`, `REQUIREMENTS_TRACEABILITY.md`, `DATABASE_DESIGN.md`, `API_SPECIFICATION.md`, `ARCHITECTURE.md`, `BOOKING_AND_AVAILABILITY_DESIGN.md`, `PAYMENT_AND_LEDGER_DESIGN.md`, `QR_ACCESS_DESIGN.md`, `SCREEN_REQUIREMENTS.md`, `BUSINESS_ASSUMPTIONS.md`, `SECURITY_AND_PRIVACY_REVIEW.md`, `TEST_STRATEGY.md`, and `DECISION_LOG.md`), constitutes the complete, approved product and technical specification for **SmartPark Exchange**.
+---
 
-Engineering teams are authorized to begin implementation of **Phase 1 (Foundational Infrastructure & Core Booking Engine)**, subject to the formal acknowledgment of external dependencies (payment aggregator merchant approvals, DLT registration, and corporate legal counsel sign-off on terms of service and tax classifications).
+## 30. Notifications
+
+- **Channels:** Firebase Cloud Messaging (FCM) for Android, Apple Push Notification service (APNs) for iOS, and telecom SMS for critical transactional receipts.
+- **Delivery Rules:** Transactional notifications (booking confirmation, access pass, GPRP alert) cannot be disabled by user preferences.
+
+---
+
+## 31. Admin and Operations
+
+- **Mobile Operations View (`SCR-401..402`):** Restricted view compiled inside the single Flutter binary, rendered only for verified `OPERATIONS` JWT claims.
+- **Capabilities:** Property authorization queue, document preview with 15-minute presigned S3 URLs, GPRP arrival incident arbitration, and manual payout batch triggers.
+- **Dual Approval:** Payout batch disbursements exceeding ₹50,000 require dual approval from Operations Lead and Finance Director.
+
+---
+
+## 32. User Experience Requirements
+
+- **Design Philosophy:** Utilitarian craftsmanship, zero AI-slop visual gimmicks (no purple radial glows, heavy frosted glass, or oversized card radii). High-contrast monochromatic foundations with hair-thin 1px borders (`border-neutral-200 dark:border-neutral-800`).
+- **Defensive States:** Every mobile screen explicitly implements 5 visual states: Loading, Populated, Empty, Error, and Offline/Degraded Network.
+- **Guard Ergonomics:** High-contrast buttons, single-tap torch toggle, and large color-coded admission banners (Bold Green vs Bold Red) designed for outdoor sunlight legibility.
+
+---
+
+## 33. API and Data Requirements
+
+- **API Standard:** RESTful JSON adhering to OpenAPI 3.1 specifications.
+- **Idempotency:** Mutating endpoints (`POST /bookings/hold`, `/payments/orders`, `/access/validate-scan`) strictly require an `Idempotency-Key` header (UUIDv4).
+- **Error Standard:** All error responses formatted per RFC 7807 Problem Details schema with explicit machine-readable error codes.
+
+---
+
+## 34. Security and Threat Model
+
+### STRIDE Threat Mitigations:
+- **Spoofing (Payment):** Webhook validation calculates HMAC-SHA256 signature directly from raw request body bytes using `hmac.compare_digest()`.
+- **Tampering (Booking Concurrency):** PostgreSQL `btree_gist` exclusion constraints prevent overlapping reservations.
+- **Repudiation (Gate Admission):** Immutable `access_scan_logs` record guard UUID, gate identifier, precise timestamp, and scanned token.
+- **Information Disclosure (Access Passes):** Zero PII or vehicle details encoded in QR passes; tokens are opaque 128-bit CSPRNG references.
+- **Denial of Service (Slot Hoarding):** Maximum 2 active concurrent holds per phone number; per-IP rate limiting via AWS WAF.
+- **Elevation of Privilege (RBAC):** Scoped JWT claims checked at FastAPI dependency middleware level.
+
+---
+
+## 35. Privacy and Data Protection
+
+- **Statutory Framework:** Digital Personal Data Protection Act (DPDPA), 2023.
+- **Data Minimization:** No collection of Aadhaar numbers, driving licenses, or bank account passwords. Only phone number, name, vehicle plate, and property tax receipt collected.
+- **Storage Limitation & Purge:** Search geolocation coordinates purged after 180 days; offline basement gate admission photos permanently purged from S3 within **7 days** of successful reconciliation.
+- **Designated Grievance Officer:** Resident Grievance Officer appointed with published email (`grievance@gadispot.in`) and 48-hour acknowledgment SLA.
+
+---
+
+## 36. Legal and External Dependencies
+
+1. **Payment Aggregator Merchant Underwriting:** Dual application submitted to Razorpay and Cashfree; launch gated on formal written underwriting approval.
+2. **Merchant of Record Structure:** Pilot disbursements operate as scheduled batch bank transfers from platform corporate account under prior bank agreement.
+3. **Indirect Tax (GST):** 18% GST collected on platform commission and driver convenience fees; formal written tax opinion commissioned regarding GST Section 9(5) vs Section 9(1).
+4. **Telecom DLT Registration:** Enterprise entity and SMS header filing with Indian telecom operators under TRAI regulations.
+5. **Municipal Parking Regulations:** Pilot restricted to white-plate private vehicles on private freehold land; municipal legal memorandum commissioned for Bengaluru BBMP jurisdiction.
+
+---
+
+## 37. Business Model and Financial Assumptions
+
+### Reconciled Unit Economics (2-Hour Stay at ₹40/hr):
+```
+1. CUSTOMER INFLOW (COLLECTED VIA UPI)
+   Gross Parking Base (2.0 hrs @ ₹40.00/hr):   ₹80.00
+   Driver Convenience Fee:                     ₹10.00
+   GST on Convenience Fee (18.0% on ₹10.00):    ₹1.80
+   -------------------------------------------------
+   TOTAL DEBITED FROM DRIVER VIA UPI:          ₹91.80  (9,180 paise)
+
+2. GATEWAY PROCESSING DEDUCTION
+   Payment Gateway MDR (2.36% on ₹91.80):       ₹2.17  (absorbed by platform)
+   Net Cash Inflow to Gadispot Current Bank:   ₹89.63
+
+3. HOST CHARGES & NET ENTITLEMENT
+   Gross Parking Base:                         ₹80.00
+   Less: Platform Facilitation Commission (15%):-₹12.00
+   Less: GST on Platform Commission (18%):      -₹2.16
+   -------------------------------------------------
+   NET OWNER ENTITLEMENT (ACCOUNT 2010):        ₹65.84  (6,584 paise)
+
+4. TAX LIABILITIES (REMITTED TO GOVERNMENT)
+   GST on Convenience Fee (from driver):        ₹1.80
+   GST on Platform Commission (from host):      ₹2.16
+   -------------------------------------------------
+   TOTAL GST OUTPUT TAX LIABILITY (ACCOUNT 2030):₹3.96  (396 paise)
+
+5. NET PLATFORM OPERATING MARGIN
+   Gross Operating Revenues (₹12.00 + ₹10.00):  ₹22.00
+   Less: Gateway Processing Expense (MDR):     -₹2.17
+   -------------------------------------------------
+   NET PLATFORM OPERATING CONTRIBUTION:        ₹19.83  (21.6% Net Take-Rate)
+
+6. CASH FLOW RECONCILIATION INVARIANT
+   Driver Paid (₹91.80) = Owner (₹65.84) + Platform (₹19.83) + GST (₹3.96) + MDR (₹2.17)
+```
+
+---
+
+## 38. Non-Functional Requirements (NFR)
+
+### Performance:
+- Spatial search API latency $\le 500\text{ms}$ at 95th percentile for 3km radius.
+- Hold acquisition API latency $\le 300\text{ms}$ under concurrency.
+- QR gate validation response $\le 1.5\text{s}$ under standard 4G connectivity.
+
+### Reliability:
+- Backend service availability target: 99.9% uptime during pilot.
+- Recovery Point Objective (RPO): 0 seconds for committed ledger entries (WAL streaming replication).
+- Recovery Time Objective (RTO): $\le 15$ minutes for automated container restart.
+
+### Scalability:
+- Pilot sizing: 200 parking bays, 1,000 daily searches, 250 daily bookings.
+- Concurrency headroom: Support 50 simultaneous booking hold attempts per second without database connection exhaustion.
+
+---
+
+## 39. Observability and Operations
+
+- **Structured Logging:** JSON-formatted logs with correlation IDs (`x-request-id`) injected at API gateway.
+- **Metrics:** Prometheus metrics tracking active holds count, hold-to-booking conversion rate, webhook processing latency, and ledger balance verification execution time.
+- **Alerting:** Automated PagerDuty alerts for webhook signature failures (>3 in 5m), ledger imbalance exceptions (immediate P0), and worker queue latency (>10s).
+
+---
+
+## 40. Backup and Disaster Recovery
+
+- **Database Backups:** Daily automated full snapshots via AWS RDS with 30-day retention; continuous WAL archiving providing point-in-time recovery (PITR) to any second within the retention window.
+- **Disaster Recovery:** Automated cross-region snapshot replication from AWS Mumbai (`ap-south-1`) to AWS Hyderabad (`ap-south-2`). Bi-annual disaster recovery restore drill.
+
+---
+
+## 41. Acceptance Criteria
+
+Every functional requirement carries explicit, testable binary acceptance criteria:
+1. Concurrency exclusion verified via simultaneous multi-worker race tests.
+2. Ledger balance verified via trigger exceptions on unbalanced journals.
+3. Webhook idempotency verified via redelivered event payloads.
+4. QR security verified via token replay attempts.
+5. Vehicle compatibility verified via dimensional mismatch submissions.
+
+---
+
+## 42. End-to-End Test Scenarios
+
+### Scenario 1 — Successful Booking and Parking Session
+- **Preconditions:** Parking Bay `Bay A-1` is available for `14:00 - 16:00`. Driver Rohan has registered vehicle `KA-01-AB-1234`.
+- **Actions:** Driver searches, selects `Bay A-1`, initiates hold, completes UPI payment via Razorpay, arrives at gate at 14:05, guard scans entry QR, driver exits at 15:50, guard scans exit QR.
+- **Expected System Behavior:** Hold acquired with 480s countdown; webhook confirms booking; entry token transitions to `CONSUMED`; session marked `COMPLETED`.
+- **Database Invariants:** Exactly 1 row in `space_reservations` with status `COMPLETED`; balanced double-entry journals posted.
+- **Financial Effects:** Driver debited ₹91.80; Owner credited ₹65.84; Platform margin ₹19.83; GST ₹3.96.
+- **Security Checks:** Opaque token validated; guard assignment validated; PII masked.
+- **Acceptance Result:** PASS.
+
+### Scenario 2 — Two Drivers Compete for One Slot (Concurrency Collision)
+- **Preconditions:** `Bay B-2` available for `10:00 - 12:00`.
+- **Actions:** Driver 1 and Driver 2 simultaneously submit `POST /bookings/hold` for `Bay B-2` for `10:00 - 12:00` with identical millisecond timestamps.
+- **Expected System Behavior:** PostgreSQL GiST constraint serializes index lock. Driver 1 receives HTTP 201 Created with active hold; Driver 2 catches `ExclusionViolation (23P01)` and receives HTTP 409 Conflict.
+- **Database Invariants:** Exactly 1 active hold row exists in `space_reservations`.
+- **Acceptance Result:** PASS.
+
+### Scenario 3 — Hold Expires Before Payment
+- **Preconditions:** Driver initiates hold; 480 seconds elapse without payment.
+- **Actions:** Background sweeper executes. Competing driver searches for bay.
+- **Expected System Behavior:** Sweeper transitions hold to `EXPIRED_HOLD`; bay appears available in search; competing driver acquires new hold.
+- **Database Invariants:** First reservation status is `EXPIRED_HOLD`; second reservation status is `ACTIVE_HOLD`.
+- **Acceptance Result:** PASS.
+
+### Scenario 4 — Late Payment Resolution Protocol (LPRP)
+- **Preconditions:** Driver A's hold expires; Driver B books the bay; Razorpay delivers late `payment.captured` for Driver A.
+- **Actions:** Webhook controller attempts to confirm Driver A's booking.
+- **Expected System Behavior:** Database throws `ExclusionViolation (23P01)`. System marks Driver A's reservation `RELEASED_UNFULFILLABLE` and automatically initiates 100% full refund (`REFUND_ELIGIBLE`).
+- **Database Invariants:** Driver B's confirmed booking remains untouched; Driver A's refund state machine initialized.
+- **Acceptance Result:** PASS.
+
+### Scenario 5 — Duplicate Payment Webhook Ingestion
+- **Preconditions:** Webhook for payment `pay_123` processed successfully.
+- **Actions:** Razorpay network retries and delivers identical payload 20 seconds later.
+- **Expected System Behavior:** Unique constraint on `payment_webhook_events(gateway_name, gateway_event_id)` catches duplicate; controller returns HTTP 200 OK immediately.
+- **Database Invariants:** Zero duplicate journal rows; reservation status remains `CONFIRMED`.
+- **Acceptance Result:** PASS.
+
+### Scenario 6 — Refund Failure and Escalation
+- **Preconditions:** Refund initiated; gateway accepts request (`GATEWAY_ACCEPTED`), but later delivers `refund.failed` webhook due to customer bank account freeze.
+- **Actions:** Webhook processed by backend.
+- **Expected System Behavior:** Refund status transitions to `REFUND_FAILED`; high-priority task created in operations queue (`SCR-402`) for manual bank transfer intervention.
+- **Database Invariants:** Refund status is `REFUND_FAILED`; compensating journal remains pending.
+- **Acceptance Result:** PASS.
+
+### Scenario 7 — QR Token Replay Attack
+- **Preconditions:** Driver checks in at gate; `ENTRY_TOKEN` transitions to `CONSUMED`.
+- **Actions:** Driver shares QR screenshot with friend; friend attempts scan at gate 5 minutes later.
+- **Expected System Behavior:** Guard scanner displays bold red alert: "ACCESS REJECTED: QR code already consumed at 14:05:22".
+- **Database Invariants:** Audit log inserted in `access_scan_logs` with result `REPLAY_REJECTED`.
+- **Acceptance Result:** PASS.
+
+### Scenario 8 — Exit Token Misuse
+- **Preconditions:** Driver has not checked in (booking is `CONFIRMED`, not `ACTIVE_SESSION`).
+- **Actions:** Driver presents exit pass at departure gate.
+- **Expected System Behavior:** Scanner rejects token: "INVALID CREDENTIAL: No active session found for this pass."
+- **Database Invariants:** Session remains `CONFIRMED`.
+- **Acceptance Result:** PASS.
+
+### Scenario 9 — Guard Underground Offline Fallback
+- **Preconditions:** Gate located in deep basement with zero cellular connectivity.
+- **Actions:** Guard opens app; app detects offline state; guard enters vehicle plate `KA-01-AB-1234`; matches locally cached shift schedule; captures vehicle photo; confirms manual admission. Guard moves to ground floor 2 hours later.
+- **Expected System Behavior:** Admission recorded in encrypted SQLite queue; upon reconnection, app syncs record to backend; backend reconciles admission; S3 lifecycle rule purges photo after 7 days.
+- **Database Invariants:** Offline admission row transitions from `PENDING_SYNC` to `RECONCILED`.
+- **Acceptance Result:** PASS.
+
+### Scenario 10 — Owner Submits Listing Without Sufficient Legal Proof
+- **Preconditions:** Owner submits electricity bill in another person's name without lease agreement.
+- **Actions:** Operations staff audits listing in `SCR-401`.
+- **Expected System Behavior:** Ops associate clicks "Reject" with reason `NAME_MISMATCH_ON_EVIDENCE`; property transitions to `REJECTED`; spaces remain unsearchable.
+- **Database Invariants:** `authorization_status` is `REJECTED`.
+- **Acceptance Result:** PASS.
+
+### Scenario 11 — GPRP Arrival Obstruction Recovery
+- **Preconditions:** Driver arrives at reserved bay; unauthorized car is parked in the bay.
+- **Actions:** Guard taps "Report Space Blocked"; GPRP engine searches alternative bay within 500m; acquires atomic hold; presents offer to driver with 180s timer; driver taps "Accept".
+- **Expected System Behavior:** Original booking cancelled; replacement booking confirmed at zero extra driver charge; platform absorbs tariff difference via Account 4020.
+- **Database Invariants:** Original booking marked `ARRIVAL_FAILED`; replacement marked `CONFIRMED`.
+- **Acceptance Result:** PASS.
+
+### Scenario 12 — Double-Entry Ledger Mathematical Consistency
+- **Preconditions:** Test script attempts to post journal entry with ₹9,180 debit to Gateway Transit and ₹9,000 credit to Owner Payable (₹180 imbalance).
+- **Actions:** Script executes `UPDATE journal_entries SET posting_status = 'POSTED'`.
+- **Expected System Behavior:** Database trigger `trg_verify_journal_balance` raises exception: `Journal entry does not balance! Total Debits: 9180, Total Credits: 9000`. Transaction rolls back.
+- **Database Invariants:** Zero unbalanced rows exist in `journal_entries`.
+- **Acceptance Result:** PASS.
+
+### Scenario 13 — Owner Batch Payout Disbursement
+- **Preconditions:** Host Anand has ₹1,316.80 accumulated earnings from completed bookings. Bank account verified via Penny Drop.
+- **Actions:** Scheduled weekly batch payout worker executes on Tuesday.
+- **Expected System Behavior:** Worker groups payable balance, dispatches IMPS transfer via corporate banking API, receives transfer UTR, posts balancing journal (Debit Account 2010 / Credit Account 1020).
+- **Database Invariants:** Account 2010 balance reduced by ₹1,316.80; payout logged in `payout_records`.
+- **Acceptance Result:** PASS.
+
+### Scenario 14 — Unauthorized Guard Access Attempt
+- **Preconditions:** Guard Ramesh is assigned to Property A.
+- **Actions:** Guard attempts to scan an access pass for Property B.
+- **Expected System Behavior:** Backend checks `guard_assignments`; detects property mismatch; rejects scan with HTTP 403 Forbidden: "Guard not assigned to this property."
+- **Database Invariants:** Unauthorized attempt logged in `security_alerts`.
+- **Acceptance Result:** PASS.
+
+### Scenario 15 — Property Suspension Following Dispute
+- **Preconditions:** An approved property receives multiple complaints for host hostility and blocked driveway.
+- **Actions:** Operations Lead suspends property in `SCR-401`.
+- **Expected System Behavior:** Property status transitions to `SUSPENDED`; all future unbooked intervals immediately withdrawn from search; existing confirmed bookings flagged for GPRP rerouting.
+- **Database Invariants:** `properties.authorization_status = 'SUSPENDED'`.
+- **Acceptance Result:** PASS.
+
+---
+
+## 43. Requirements Traceability Matrix
+
+Every functional requirement is mapped to its architecture component, database domain, test scenario, and external dependency in [docs/product/REQUIREMENTS_TRACEABILITY.md](docs/product/REQUIREMENTS_TRACEABILITY.md).
+
+---
+
+## 44. Risks and Mitigations
+
+| Risk ID | Risk Description | Severity | Likelihood | Architectural & Operational Mitigation |
+|---|---|---|---|---|
+| **RSK-001** | Payment Aggregator delays merchant onboarding or Route approval. | High | Medium | Dual application strategy (Razorpay + Cashfree); Phase 1 batch bank payouts from corporate current account. |
+| **RSK-002** | Society committees (RWA) contest member parking rentals. | High | Medium | Strict onboarding rule: Society NOC mandatory before apartment bays are approved; focus pilot on independent driveways. |
+| **RSK-003** | Subterranean basements prevent guard online validation. | Medium | High | Controlled Manual Exception Protocol with local cached shift schedule, photo evidence, and 7-day automated purge. |
+| **RSK-004** | Telecom SMS OTP delivery latency or delivery drops. | Medium | Medium | Firebase Phone Auth multi-provider carrier routing; fallback WhatsApp verification sidecar evaluated for Phase 2. |
+| **RSK-005** | Double-booking race conditions during flash congestion. | Critical | Low | PostgreSQL `btree_gist` exclusion constraints enforce absolute mathematical serialization at the engine level. |
+
+---
+
+## 45. Assumptions and Constraints
+
+- **Mobile Handset Baseline:** Android 10+ (API level 29) and iOS 15+.
+- **Payment Method:** Domestic Indian UPI applications (PhonePe, GPay, Paytm, BHIM) and domestic debit/credit cards. International cards disabled for MVP.
+- **Vehicle Scope:** White-plate private passenger vehicles only (2-Wheelers, Hatchbacks, Sedans, SUVs). Commercial yellow-plate vehicles excluded.
+- **Hardware Agnostic:** Zero dependency on barrier gate relays, ANPR cameras, or IoT ground sensors for MVP.
+
+---
+
+## 46. Open Questions and Decision Gates
+
+All 65 decision items are tracked with explicit ownership, statuses, and target dates in [docs/product/OPEN_QUESTIONS.md](docs/product/OPEN_QUESTIONS.md):
+- **15 Decided / Resolved:** Formally signed baselines.
+- **33 Proposed Defaults:** Working architectural defaults pending founder commercial signoff.
+- **12 External Dependencies:** Gated on third-party payment aggregator underwriting and telecom DLT approvals.
+- **5 Legal Reviews:** Gated on formal written legal/tax memorandums (GST Section 9(5), Municipal Trade Licensing).
+
+---
+
+## 47. Implementation Readiness Criteria
+
+Evaluation against the six non-negotiable Engineering Readiness Gates:
+- **Gate A (Product Completeness):** **PASS** — Unambiguous scope, roles, workflows, and functional requirements.
+- **Gate B (Booking Correctness):** **PASS** — Universal 480s hold, GiST exclusion locks, two-tier expiration engine, LPRP protocol.
+- **Gate C (Financial Correctness):** **PASS WITH QUALIFICATIONS** — Balanced double-entry ledger triggers and durable idempotency verified; commercial pilot disbursements gated on payment aggregator underwriting.
+- **Gate D (Security & Access):** **PASS** — Cryptographic QR separation, 128-bit CSPRNG tokens, bounded offline fallback, 7-day photo purge rule.
+- **Gate E (Legal & External Rails):** **PASS WITH QUALIFICATIONS** — Unbacked escrow claims removed; pilot launch gated on legal tax memo and telecom DLT registration.
+- **Gate F (Engineering Traceability):** **PASS** — All 16 FR families mapped to acceptance criteria, DDL invariants, and 20 high-risk test scenarios.
+
+---
+
+## 48. Glossary
+
+1. **Active Hold:** A temporary 480-second reservation during checkout preventing competing bookings via PostgreSQL GiST exclusion lock.
+2. **Access Pass:** An in-app presentation credential containing an opaque high-entropy token presented to gate guards.
+3. **BBMP:** Bruhat Bengaluru Mahanagara Palike, the municipal administrative body governing Bengaluru.
+4. **CSPRNG:** Cryptographically Secure Pseudo-Random Number Generator, utilized to mint 128-bit access tokens.
+5. **DLT:** Distributed Ledger Technology, statutory Indian telecom framework for SMS commercial communication registration.
+6. **DPDPA:** Digital Personal Data Protection Act, 2023, India's statutory personal data protection framework.
+7. **Double-Entry Bookkeeping:** Accounting methodology where every financial transaction posts equal debit and credit amounts.
+8. **Entry Token (`ENTRY_TOKEN`):** Single-use access credential valid from $t_{\text{start}}-15\text{m}$ to $t_{\text{start}}+30\text{m}$.
+9. **Exit Token (`EXIT_TOKEN`):** Access credential valid through scheduled departure plus 15 minutes, dynamically updated on extension.
+10. **GiST:** Generalized Search Tree, PostgreSQL indexing structure supporting temporal range exclusion constraints.
+11. **GPRP:** Guaranteed Parking Recovery Protocol, an atomic 8-step alternative space reallocation and refund workflow.
+12. **Idempotency Key:** Unique UUIDv4 transmitted in HTTP headers to prevent duplicate execution of mutating API requests.
+13. **Journal Entry:** Header record representing a balanced financial transaction in the general ledger.
+14. **Journal Line:** Individual debit or credit record bound to a specific chart of accounts code.
+15. **LPRP:** Late Payment Resolution Protocol, handling payments arriving after hold expiration without double-booking.
+16. **MDR:** Merchant Discount Rate, processing fee deducted by payment aggregators on electronic transactions.
+17. **MoR:** Merchant of Record, the legal entity authorized to process payments and assume customer liability.
+18. **MSAI:** Multi-Source Availability Intelligence, synthesizing 7 operational signals into an availability state.
+19. **NPCI:** National Payments Corporation of India, umbrella organization operating the UPI network.
+20. **Opaque Token:** High-entropy hexadecimal token containing zero embedded customer PII or database IDs.
+21. **Outbox Pattern:** Transactional database table storing downstream integration events within the same ACID transaction.
+22. **Overstay:** Vehicle remaining in a parking bay beyond the 15-minute departure grace period.
+23. **Penny-Drop Verification:** Automated API depositing ₹1.00 into a host's bank account to verify account holder name.
+24. **PostGIS:** Spatial database extender for PostgreSQL providing geographic radius search and polygon queries.
+25. **Razorpay Route:** Payment aggregator marketplace split product facilitating programmatic linked account transfers.
+26. **RBAC:** Role-Based Access Control, restricting API endpoints based on authenticated JWT role claims.
+27. **STRIDE:** Security threat modeling methodology evaluating Spoofing, Tampering, Repudiation, Information Disclosure, DoS, and Elevation of Privilege.
+28. **Take-Rate:** Net percentage of gross booking value retained by the platform after owner payout, GST, and gateway fees.
+29. **UPI Intent:** Mobile payment flow directly launching installed UPI applications on the customer's smartphone.
+30. **WGS 84:** World Geodetic System 1984, standard coordinate reference frame (EPSG:4326) used for spatial points.
+
+---
+
+## 49. Revision History Log
+
+Comprehensive historical evolution of the Gadispot Product Requirements Document:
+- **v0.1.0 (2026-10-15):** Conceptual framework.
+- **v1.0.0 (2026-10-31):** Initial 45-section draft.
+- **v2.0.0 (2026-10-31):** Modular monolith, PostgreSQL GiST locks, unified `space_reservations` model, double-entry ledger architecture.
+- **v2.1.0 (2026-10-31):** Concurrency locking, multi-stage refund states, 128-bit CSPRNG entropy.
+- **v2.2.0 (2026-10-31):** Universal 480-second hold standardization, reconciled unit economics (₹19.83 margin / ₹65.84 host entitlement), durable database webhook idempotency, automated 7-day photo purge rule.
+- **v2.3.0 (2026-10-31):** Canonical 6-stage refund lifecycle, database triggers and row-locking on `journal_lines`, eradication of 5-min/04:59 checkout references, removal of machine-specific local paths, stable FR-xxx IDs, 15 comprehensive end-to-end scenarios, honest readiness gates, and Gadispot brand harmonization.
+
+---
+
+## 50. References and Related Documents
+
+### Master Architecture Blueprints:
+* [High-Level System Architecture Specification](docs/technical/ARCHITECTURE.md)
+* [Comprehensive Database & DDL Specification](docs/technical/DATABASE_DESIGN.md)
+* [Payment Engine & Financial Ledger Specification](docs/technical/PAYMENT_AND_LEDGER_DESIGN.md)
+* [Booking & Availability Engine Technical Specification](docs/technical/BOOKING_AND_AVAILABILITY_DESIGN.md)
+* [QR Access & Verification Architecture](docs/technical/QR_ACCESS_DESIGN.md)
+* [Comprehensive REST API Specification](docs/technical/API_SPECIFICATION.md)
+
+### Product Specifications & Governance:
+* [Comprehensive User Flow & Journey Diagrams](docs/product/USER_FLOWS.md)
+* [Mobile Screen Specifications & UX Requirements](docs/product/SCREEN_REQUIREMENTS.md)
+* [Security Threat Model & Privacy Impact Review](docs/product/SECURITY_AND_PRIVACY_REVIEW.md)
+* [Business Assumptions, Economics & Sensitivity Analysis](docs/product/BUSINESS_ASSUMPTIONS.md)
+* [Unresolved Decisions & Decision Register (65 Items)](docs/product/OPEN_QUESTIONS.md)
+* [Open-Source Integrations & Technology Evaluation](docs/product/OPEN_SOURCE_INTEGRATIONS.md)
+* [Architectural Decision Log (ADR-001..010)](docs/product/DECISION_LOG.md)
+* [Requirements Traceability Matrix (RTM)](docs/product/REQUIREMENTS_TRACEABILITY.md)
+
+### Quality Assurance & Audit Reports:
+* [Comprehensive Quality Assurance & Test Strategy](docs/quality/TEST_STRATEGY.md)
+* [Specification V2.3 Final Audit Report](docs/audits/PRD_V2_3_FINAL_AUDIT.md)
+* [Specification V2.3 Comprehensive Changelog](docs/audits/PRD_V2_3_CHANGELOG.md)
+* [Historical V2.2 Final Audit](docs/audits/PRD_FINAL_AUDIT.md)
+* [Historical Technical Audit](docs/audits/TECHNICAL_AUDIT.md)

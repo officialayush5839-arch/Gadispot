@@ -1,8 +1,8 @@
-# SmartPark Exchange — Open-Source Integrations & Technology Evaluation
+# Gadispot (formerly SmartPark Exchange) — Open-Source Integrations & Technology Evaluation
 
-> **Document Version:** 1.0.0  
+> **Document Version:** 2.3.0  
 > **Last Updated:** 2026-10-31  
-> **Status:** Approved Architecture Reference  
+> **Status:** Approved Architecture Reference (V2.3 Harmonized)  
 > **Authors:** Principal Software Architect, Backend Architect, Mobile Architect, Payment Specialist  
 
 ---
@@ -36,7 +36,7 @@ SmartPark Exchange is built on the engineering principle of **pragmatic reuse**:
 | **Push Notifications (Mobile)** | `firebase/flutterfire` (`firebase_messaging`) | BSD-3-Clause | Actively maintained by Google/Invertase | Flutter Mobile Client | Firebase Cloud Messaging (FCM) / Apple APNs | Free tier: Unlimited notifications | Device APNs/FCM push tokens registered on login, invalidated on logout. Background/foreground handling. | **ADOPT (P0 MVP)** | Cross-platform standard for real-time booking alerts, hold expiration warnings, and entry/exit updates. |
 | **Push Notifications (Backend)** | `firebase-admin-python` (`firebase-admin.messaging`) | Apache-2.0 | Actively maintained by Google | FastAPI Notification Worker | FCM HTTP v1 API | Free tier: Unlimited notifications | Uses OAuth2 service credentials. Supports multicast messages, notification payload data, and priority headers (`high`). | **ADOPT (P0 MVP)** | Reliable push dispatch directly from async FastAPI workers without external commercial notification SaaS. |
 | **PostgreSQL Driver & ORM** | `asyncpg` + `SQLAlchemy 2.0` | Apache-2.0 / MIT | Highly active; industry standard | FastAPI Data Layer | Managed PostgreSQL 15+ | 100% Free / Open Source | Native support for PostgreSQL `tstzrange`, `GiST` index, and `EXCLUDE USING gist` for transactional double-booking prevention. | **ADOPT (P0 MVP)** | Maximum performance async PostgreSQL binary driver combined with typed SQLAlchemy 2.0 declarative models. |
-| **Cache & Distributed Locks** | `redis-py` (asyncio) | MIT License | Actively maintained; `v5.0+` | FastAPI Cache & State Layer | Managed Redis 7.0+ | 100% Free / Open Source | Atomic key management (`SET NX EX`) for 5-minute temporary booking holds; token bucket rate-limiting algorithms. | **ADOPT (P0 MVP)** | High-throughput sub-millisecond state management for non-durable locks and session counters. |
+| **Cache & Distributed Locks** | `redis-py` (asyncio) | MIT License | Actively maintained; `v5.0+` | FastAPI Cache & State Layer | Managed Redis 7.0+ | 100% Free / Open Source | Atomic key management (`SET NX EX`) for 480-second (8-minute) temporary booking holds; token bucket rate-limiting algorithms. | **ADOPT (P0 MVP)** | High-throughput sub-millisecond state management for non-durable locks and session counters. |
 
 ---
 
@@ -157,12 +157,24 @@ The following matrix documents the real-world operational costs of each external
 ### 5.2 Payment Webhook Verification Protocol
 1. **Raw Body Integrity:** Webhook validation must use the unprocessed raw request body bytes (`request.body()`). Deserializing to JSON and re-serializing alters whitespace and invalidates the HMAC signature.
 2. **Secret Separation:** The Razorpay Webhook Secret (`RAZORPAY_WEBHOOK_SECRET`) must be completely distinct from the API Key Secret (`RAZORPAY_KEY_SECRET`).
-3. **Idempotency Protection:** Every incoming webhook delivery includes `x-razorpay-event-id`. The backend checks Redis with a 24-hour TTL:
+3. **Durable Database Idempotency:** Every incoming webhook delivery includes a unique gateway event identifier (e.g., `x-razorpay-event-id`). The backend records the raw event authoritatively in PostgreSQL before taking business actions:
    ```python
-   is_new = await redis_client.set(f"webhook:event:{event_id}", "processed", nx=True, ex=86400)
-   if not is_new:
+   # Durable Database-Level Deduplication via PostgreSQL
+   stmt = insert(payment_webhook_events).values(
+       gateway_name="RAZORPAY",
+       gateway_event_id=event_id,
+       event_type=payload["event"],
+       payload=payload,
+       status="PROCESSING"
+   ).on_conflict_do_nothing(
+       index_elements=["gateway_name", "gateway_event_id"]
+   )
+   res = await db_session.execute(stmt)
+   if res.rowcount == 0:
+       # Event already persisted and processed/processing
        return Response(status_code=200, content="Duplicate event ignored")
    ```
+   Redis serves strictly as a temporary lock during the transaction, never as the sole deduplication authority.
 4. **Amount & Currency Check:** The verified captured amount in paise must match `booking.amount_paise` exactly.
 
 ### 5.3 Two QR Code Systems Separation
@@ -172,13 +184,13 @@ Under no circumstances may the **Payment Dynamic QR** and the **Parking Access Q
 +---------------------------------------------------------------------------------------------------+
 |                                  TWO DISTINCT QR CODE SYSTEMS                                     |
 +------------------------------------+--------------------------------------------------------------+
-| 1. Dynamic Payment QR              | 2. Parking Access QR                                         |
+| 1. Dynamic Payment QR              | 2. Parking Access QR (Entry & Exit)                          |
 +------------------------------------+--------------------------------------------------------------+
-| • Origin: Razorpay API             | • Origin: SmartPark Backend Engine                          |
-| • Consumer: Driver UPI Mobile App  | • Consumer: SmartPark Guard App                              |
-| • Encodes: UPI Virtual Address/URL | • Encodes: High-entropy opaque cryptosecure token UUIDv4     |
+| • Origin: Razorpay API             | • Origin: Gadispot Backend Engine                            |
+| • Consumer: Driver UPI Mobile App  | • Consumer: Guard Mobile Application (mobile_scanner)        |
+| • Encodes: UPI Virtual Address/URL | • Encodes: 128-bit CSPRNG token (spx_ent_... / spx_ext_...)   |
 | • Purpose: Transfer funds via UPI  | • Purpose: Physical gate validation & session initiation     |
-| • Lifetime: Exactly 5 minutes (TTL)| • Lifetime: Booking start - 15 min through booking end time  |
+| • Lifetime: Exactly 480s / 8m (TTL)| • Lifetime: Booking start - 15 min through booking end time  |
 | • Security: NPCI BharatQR standard | • Security: One-time burn upon entry, replay protection      |
 +------------------------------------+--------------------------------------------------------------+
 ```

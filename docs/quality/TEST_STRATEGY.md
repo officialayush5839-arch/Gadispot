@@ -1,10 +1,10 @@
-# SmartPark Exchange — Comprehensive Quality Assurance & Test Strategy (V2.2)
+# Gadispot (formerly SmartPark Exchange) — Comprehensive Quality Assurance & Test Strategy (V2.3)
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Date:** October 31, 2026  
 > **Authors:** QA & Test Strategy Lead, Senior Backend Engineer, Mobile Test Architect  
 > **Test Frameworks:** Pytest (Backend / DB), Flutter Test / Integration Test (Mobile), Locust (Performance)  
-> **Status:** Authoritative Engineering Test Catalogue (Targeted Revision V2.2)  
+> **Status:** Authoritative Engineering Test Catalogue (Targeted Revision V2.3)  
 
 ---
 

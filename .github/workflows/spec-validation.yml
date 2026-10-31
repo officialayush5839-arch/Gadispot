@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate-specs:
-    name: Validate V2.2 Specification Suite
+    name: Validate V2.3 Specification Suite
     runs-on: ubuntu-latest
 
     steps:
@@ -37,8 +37,10 @@ jobs:
 
           # Excluded paths where historical audit notes or revision logs are expected
           excluded_files = {
-              'PRD.md',  # Contains revision table row explaining v2.2 fixes
+              'PRD.md',  # Contains revision table row explaining historical fixes
               os.path.join('docs', 'audits', 'PRD_FINAL_AUDIT.md'),
+              os.path.join('docs', 'audits', 'PRD_V2_3_FINAL_AUDIT.md'),
+              os.path.join('docs', 'audits', 'PRD_V2_3_CHANGELOG.md'),
               os.path.join('docs', 'audits', 'TECHNICAL_AUDIT.md'),
               os.path.join('docs', 'technical', 'BOOKING_AND_AVAILABILITY_DESIGN.md')  # Contains explanatory note forbidding compatibility >=
           }

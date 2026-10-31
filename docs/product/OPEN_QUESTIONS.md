@@ -1,8 +1,8 @@
-# SmartPark Exchange — Unresolved Decisions & Open Questions Decision Register (V2.2)
+# Gadispot (formerly SmartPark Exchange) — Unresolved Decisions & Open Questions Decision Register (V2.3)
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Last Updated:** October 31, 2026  
-> **Status:** Active Authoritative Decision Register  
+> **Status:** Active Authoritative Decision Register (V2.3 Baselined)  
 > **Audience:** Founders, Executive Leadership, Legal Counsel, Product Managers, Lead Architects  
 
 ---

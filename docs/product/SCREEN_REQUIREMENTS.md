@@ -1,10 +1,10 @@
-# SmartPark Exchange — Mobile Screen Specifications & UX Requirements
+# Gadispot (formerly SmartPark Exchange) — Mobile Screen Specifications & UX Requirements
 
-> **Document Version:** 1.0.0  
+> **Document Version:** 2.3.0  
 > **Date:** 2026-10-31  
 > **Platform:** Single Cross-Platform Flutter Mobile Application (Android & iOS)  
 > **Audience:** Senior Flutter Architect, Mobile Engineers, UI/UX Designers  
-> **Status:** Approved Engineering Specification  
+> **Status:** Approved Engineering Specification (V2.3 Harmonized)  
 
 ---
 
@@ -73,7 +73,7 @@
 - **Role:** Driver.
 - **Entry Point:** Tapping "Book This Bay" in `SCR-102`.
 - **Core Elements:**
-  - Top countdown banner: "Space held for 04:59. Complete payment to secure booking."
+  - Top countdown banner: "Space held for 07:59. Complete payment to secure booking."
   - Time window summary card: Start date/time, End date/time, Total duration.
   - Vehicle selector: Dropdown of driver's registered vehicles or "Add Vehicle" shortcut.
   - Itemized Financial Breakdown:
@@ -83,7 +83,7 @@
     * Total Driver Payable (₹91.80)
   - Bottom Primary Button: "Pay ₹91.80 via UPI" (Triggers Razorpay Flutter SDK).
 - **Edge States:**
-  - *Hold Expired (Timer hits 00:00):* Modal blocks screen: "Hold Expired: Your 5-minute reservation hold has expired. The space has been released. [Return to Search]".
+  - *Hold Expired (Timer hits 00:00):* Modal blocks screen: "Hold Expired: Your 8-minute (480-second) reservation hold has expired. The space has been released. [Return to Search]".
 
 #### `SCR-104`: Confirmed Booking & Dynamic Access Pass
 - **Role:** Driver.

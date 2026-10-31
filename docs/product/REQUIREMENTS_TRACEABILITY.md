@@ -1,15 +1,15 @@
-# SmartPark Exchange — Requirements Traceability Matrix (RTM)
+# Gadispot (formerly SmartPark Exchange) — Requirements Traceability Matrix (RTM)
 
-> **Document Version:** 2.0.0 (Re-Engineered)  
+> **Document Version:** 2.3.0  
 > **Last Updated:** 2026-10-31  
-> **Status:** Baselined Engineering Spec  
+> **Status:** Baselined Engineering Spec (V2.3 Harmonized)  
 > **Audience:** QA Leads, Test Engineers, Software Developers, Technical Documentation  
 
 ---
 
 ## 1. Traceability Overview & Verification Methodology
 
-Every functional and non-functional requirement defined in the SmartPark specification is mapped to its user persona, feature domain, release priority, architectural component, testable acceptance criteria, and explicit test scenario in [`docs/quality/TEST_STRATEGY.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/quality/TEST_STRATEGY.md).
+Every functional and non-functional requirement defined in the Gadispot specification is mapped to its user persona, feature domain, release priority, architectural component, testable acceptance criteria, and explicit test scenario in [`docs/quality/TEST_STRATEGY.md`](docs/quality/TEST_STRATEGY.md).
 
 ### Verification Levels
 - **UNIT:** Pytest / Flutter unit tests (isolated functions, state reducers, pricing math).
@@ -43,7 +43,7 @@ Every functional and non-functional requirement defined in the SmartPark specifi
 | **DRV-002** | Location-Based Parking Search | Driver | **P0 (MVP)** | §10.2 | Given GPS coordinates or destination search query + arrival time + duration, backend returns only verified, available, and vehicle-compatible parking spaces within radius. | `INT`, `API` | `Int-Search` |
 | **DRV-003** | Interactive Map & List Synchronization | Driver | **P0 (MVP)** | §10.3 | Map renders pin markers with price-per-hour badges. Tapping a map pin highlights the corresponding card in the bottom list carousel. | `E2E (Flutter UI)` | `E2E-Map` |
 | **DRV-004** | Space Details Page | Driver | **P0 (MVP)** | §10.4 | Displays verified photos, exact hourly rate, security features (CCTV, Covered, Gated), access restrictions, cancellation policy, and operating hours. | `API`, `E2E` | `API-Details` |
-| **DRV-005** | Atomic Time-Window Hold Creation | Driver | **P0 (MVP)** | §10.5 | Initiating booking inserts row into `space_reservations` with status `ACTIVE_HOLD` and 5-min TTL. Enforced by PostgreSQL GiST exclusion constraint (`23P01` on conflict). | `CONCURRENCY`, `INT` | `TS-01`, `TS-02`, `TS-03` |
+| **DRV-005** | Atomic Time-Window Hold Creation | Driver | **P0 (MVP)** | §10.5 | Initiating booking inserts row into `space_reservations` with status `ACTIVE_HOLD` and 480-second (8-minute) TTL. Enforced by PostgreSQL GiST exclusion constraint (`23P01` on conflict). | `CONCURRENCY`, `INT` | `TS-01`, `TS-02`, `TS-03` |
 | **DRV-006** | Razorpay Checkout Launch | Driver | **P0 (MVP)** | §10.6 | Flutter app launches Razorpay SDK with backend-generated `order_id`, pre-filling driver phone and amount. No payment gateway secret exists in app. | `INT`, `E2E` | `E2E-Pay` |
 | **DRV-007** | Authoritative Booking Confirmation | Driver | **P0 (MVP)** | §10.7 | Booking confirmation screen renders ONLY after backend confirms payment via webhook or polling verification. Never confirms on frontend callback alone. | `INT`, `API`, `E2E` | `TS-04`, `TS-05` |
 | **DRV-008** | Dynamic Access QR Display | Driver | **P0 (MVP)** | §10.8 | Renders high-contrast QR code generated from backend cryptosecure opaque token (`spx_...`); displays active booking countdown timer and navigation link. | `UNIT`, `E2E` | `TS-08`, `TS-09` |
@@ -111,14 +111,14 @@ Every functional and non-functional requirement defined in the SmartPark specifi
 |---|---|---|---|---|---|---|---|
 | **PAY-001** | Server-Side Order Generation | Driver, System | **P0 (MVP)** | §20.1 | Backend creates payment order via Razorpay API (`POST /v1/orders`) with exact amount in paise, currency `INR`, and linked `reservation_id` in order notes. | `INT`, `API` | `Int-Order` |
 | **PAY-002** | Authoritative Webhook Verification | System | **P0 (MVP)** | §20.2 | `POST /api/v1/webhooks/razorpay` verifies HMAC-SHA256 signature using raw request body. Rejects invalid signatures with HTTP 400. Never processes unverified events. | `UNIT`, `INT`, `SEC` | `TS-05` |
-| **PAY-003** | Webhook Idempotency & Replay Shield | System | **P0 (MVP)** | §20.3 | Webhook event ID (`x-razorpay-event-id`) stored in Redis with 24-hr TTL. Duplicate deliveries return HTTP 200 without executing duplicate database mutations. | `CONCURRENCY`, `INT` | `TS-05` |
-| **PAY-004** | Fallback Status Verification Polling | System | **P0 (MVP)** | §20.4 | If webhook is delayed (>60 sec post-checkout), mobile app triggers `GET /api/v1/payments/verify-status/{order_id}`, prompting backend to query Razorpay REST API directly. | `INT`, `API` | `Int-Poll` |
-| **PAY-005** | Late Payment Resolution Protocol (LPRP) | System | **P0 (MVP)** | §20.5 | If payment arrives after hold expired and slot was claimed by another driver, system marks `RELEASED_UNFULFILLABLE` and automatically dispatches 100% full refund via API. | `INT`, `API`, `CONCURRENCY` | `TS-04` |
-| **LEDG-001** | Double-Entry Immutable Ledger | System | **P0 (MVP)** | §16.1 | Every financial mutation creates balanced debit and credit entries in append-only `ledger_entries` table ($\sum \text{Debits} = \sum \text{Credits}$). Updates and deletes are database-revoked. | `UNIT`, `INT` | `TS-16` |
-| **LEDG-002** | Automated Revenue & Commission Split | System | **P0 (MVP)** | §16.2 | Upon confirmation, ledger records: Debit Gateway Transit (₹91.80), Credit Owner Payable (₹65.83), Credit Commission (₹12.00), Credit Convenience (₹10.00), Credit GST (₹3.96). | `UNIT`, `INT` | `TS-16` |
-| **REF-001** | Automated Policy-Authorized Refund | System | **P0 (MVP)** | §24.1 | When cancellation or GPRP failure qualifies for refund, system issues refund API call to Razorpay (`client.payment.refund`), creates reversal ledger entries, and updates booking. | `INT`, `API` | `TS-14` |
-| **POUT-001** | Weekly Owner Settlement Calculation | System | **P0 (MVP)** | §25.1 | Weekly payout engine aggregates completed sessions for eligible owners; checks minimum ₹500 balance threshold; prepares transfer batch. | `INT`, `API` | `TS-15` |
-| **POUT-002** | Two-Phased Marketplace Payouts | System | **P0 (MVP)** | §25.2 | Phase 1 executes automated direct batch bank transfers via RazorpayX / Cashfree Payouts IMPS API; Phase 2 executes Razorpay Route linked account transfers upon turnover qualification. | `INT`, `API` | `TS-15` |
+| **PAY-003** | Webhook Idempotency & Replay Shield | System | **P0 (MVP)** | §20 | Webhook event recorded in PostgreSQL `payment_webhook_events` table with unique constraint on `(gateway_name, gateway_event_id)`; Redis accelerates in-flight checking. Duplicate deliveries return HTTP 200 without duplicate database mutations. | `CONCURRENCY`, `INT` | `TS-05` |
+| **PAY-004** | Fallback Status Verification Polling | System | **P0 (MVP)** | §20 | If webhook is delayed (>60 sec post-checkout), mobile app triggers `GET /api/v1/payments/verify-status/{order_id}`, prompting backend to query Razorpay REST API directly. | `INT`, `API` | `Int-Poll` |
+| **PAY-005** | Late Payment Resolution Protocol (LPRP) | System | **P0 (MVP)** | §20 | If payment arrives after hold expired and slot was claimed by another driver, system marks `RELEASED_UNFULFILLABLE` and automatically dispatches 100% full refund via 6-stage lifecycle. | `INT`, `API`, `CONCURRENCY` | `TS-04` |
+| **LEDG-001** | Double-Entry Immutable Ledger | System | **P0 (MVP)** | §22 | Every financial mutation creates balanced debit and credit entries in append-only `journal_entries` and `journal_lines` tables ($\sum \text{Debits} = \sum \text{Credits}$). Updates and deletes are database-revoked. | `UNIT`, `INT` | `TS-16` |
+| **LEDG-002** | Automated Revenue & Commission Split | System | **P0 (MVP)** | §22 | Upon confirmation, ledger records: Debit Gateway Transit (₹91.80), Credit Owner Payable (₹65.84), Credit Commission (₹12.00), Credit Convenience (₹10.00), Credit GST (₹3.96). | `UNIT`, `INT` | `TS-16` |
+| **REF-001** | Automated Policy-Authorized Refund | System | **P0 (MVP)** | §21 | When cancellation or GPRP failure qualifies for refund, system triggers 6-stage asynchronous refund lifecycle (`REFUND_ELIGIBLE` $\to$ `REFUND_SETTLED`), creates reversal ledger entries, and updates booking. | `INT`, `API` | `TS-14` |
+| **POUT-001** | Weekly Owner Settlement Calculation | System | **P0 (MVP)** | §23 | Weekly payout engine aggregates completed sessions for eligible owners; checks minimum ₹500 balance threshold; prepares transfer batch. | `INT`, `API` | `TS-15` |
+| **POUT-002** | Two-Phased Marketplace Payouts | System | **P0 (MVP)** | §23 | Phase 1 executes automated direct batch bank transfers via corporate account IMPS under MoR status; Phase 2 executes Razorpay Route linked account transfers upon turnover qualification. | `INT`, `API` | `TS-15` |
 
 ---
 
@@ -126,11 +126,11 @@ Every functional and non-functional requirement defined in the SmartPark specifi
 
 | Req ID | Feature Domain | User Role | Priority | PRD Section | Acceptance Criteria | Automated Test Coverage | Test Scenario Ref |
 |---|---|---|---|---|---|---|---|
-| **REC-001** | Arrival Incident Trigger | Guard, Driver | **P0 (MVP)** | §23.1 | Incident triggered when space is occupied, blocked, or gate inaccessible. Space is immediately marked `BLOCKED` in MSAI to prevent future bookings. | `INT`, `API` | `TS-07` |
-| **REC-002** | Dynamic Alternative Search Algorithm | System | **P0 (MVP)** | §23.2 | System queries active inventory within 500m walking radius with compatible vehicle size and matching time window. Excludes unverified or conflicted spaces. | `UNIT`, `INT` | `TS-07` |
-| **REC-003** | Alternative Offer Presentation | Driver | **P0 (MVP)** | §23.3 | App presents alternative space card with photo, exact walking distance, and clear "Accept Reassignment" / "Decline & Get Full Refund" options. | `E2E (Flutter UI)` | `TS-07` |
-| **REC-004** | Alternative Acceptance & QR Re-issue | Driver, System | **P0 (MVP)** | §23.4 | Upon acceptance, system invalidates original QR token, creates booking re-allocation record, generates new QR token for alternative property, and notifies new guard. | `INT`, `API`, `E2E` | `TS-13` |
-| **REC-005** | No Alternative / Decline Fallback | Driver, System | **P0 (MVP)** | §23.5 | If no alternative is found within 500m OR driver taps "Decline", system triggers 100% full refund + ₹100 platform apology voucher; marks incident `UNRESOLVED_REFUNDED`. | `INT`, `API` | `TS-07` |
+| **REC-001** | Arrival Incident Trigger | Guard, Driver | **P0 (MVP)** | §26 | Incident triggered when space is occupied, blocked, or gate inaccessible. Space is immediately marked `BLOCKED` in MSAI to prevent future bookings. | `INT`, `API` | `TS-07` |
+| **REC-002** | Dynamic Alternative Search Algorithm | System | **P0 (MVP)** | §26 | System queries active inventory within 500m walking radius with compatible vehicle size and matching time window. Excludes unverified or conflicted spaces. | `UNIT`, `INT` | `TS-07` |
+| **REC-003** | Alternative Offer Presentation | Driver | **P0 (MVP)** | §26 | App presents alternative space card with photo, exact walking distance, and clear "Accept Reassignment" / "Decline & Get Full Refund" options with 180s countdown timer. | `E2E (Flutter UI)` | `TS-07` |
+| **REC-004** | Alternative Acceptance & QR Re-issue | Driver, System | **P0 (MVP)** | §26 | Upon acceptance, system invalidates original QR token, creates booking re-allocation record, generates new QR token for alternative property, and notifies new guard. | `INT`, `API`, `E2E` | `TS-13` |
+| **REC-005** | No Alternative / Decline Fallback | Driver, System | **P0 (MVP)** | §26 | If no alternative is found within 500m OR driver taps "Decline", system immediately triggers 100% full refund (`REFUND_ELIGIBLE`); marks incident `UNRESOLVED_REFUNDED`. | `INT`, `API` | `TS-07` |
 
 ---
 

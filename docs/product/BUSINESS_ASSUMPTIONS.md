@@ -1,9 +1,9 @@
-# SmartPark Exchange — Business Assumptions, Economics & Sensitivity Analysis (V2.2)
+# Gadispot (formerly SmartPark Exchange) — Business Assumptions, Economics & Sensitivity Analysis (V2.3)
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Date:** October 31, 2026  
 > **Authors:** Principal Product Manager, Senior Business Analyst, Finance Lead  
-> **Status:** Authoritative Financial & Unit Economics Reference (Targeted Revision V2.2)  
+> **Status:** Authoritative Financial & Unit Economics Reference (Targeted Revision V2.3)  
 
 ---
 

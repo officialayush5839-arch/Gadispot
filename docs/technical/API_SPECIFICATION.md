@@ -1,11 +1,11 @@
-# SmartPark Exchange — Comprehensive REST API Specification (V2.2)
+# Gadispot (formerly SmartPark Exchange) — Comprehensive REST API Specification (V2.3)
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Date:** October 31, 2026  
 > **API Standard:** OpenAPI 3.1 / RESTful JSON  
 > **Backend Framework:** Python FastAPI  
-> **Base URL:** `https://api.smartpark.in/api/v1`  
-> **Status:** Authoritative Engineering Design (Targeted Revision V2.2)  
+> **Base URL:** `https://api.gadispot.in/api/v1`  
+> **Status:** Authoritative Engineering Design (Targeted Revision V2.3)  
 
 ---
 

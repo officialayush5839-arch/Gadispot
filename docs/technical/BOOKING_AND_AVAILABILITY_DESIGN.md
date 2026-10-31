@@ -1,9 +1,9 @@
-# SmartPark Exchange — Booking & Availability Engine Technical Specification (V2.2)
+# Gadispot (formerly SmartPark Exchange) — Booking & Availability Engine Technical Specification (V2.3)
 
-> **Document Version:** 2.2.0  
+> **Document Version:** 2.3.0  
 > **Date:** October 31, 2026  
 > **Authors:** Principal Software Architect, Database Architect, Senior Backend Engineer  
-> **Status:** Authoritative Engineering Design (Targeted Revision V2.2)  
+> **Status:** Authoritative Engineering Design (Targeted Revision V2.3)  
 
 ---
 
@@ -54,13 +54,15 @@ CREATE TYPE reservation_status_enum AS ENUM (
     'RELEASED_UNFULFILLABLE'    -- Late payment arrived after hold expired & slot claimed by another
 );
 
--- Enumeration of Multi-Stage Refund Lifecycle
+-- Enumeration of Multi-Stage Refund Lifecycle (Canonical 6-Stage Lifecycle)
 CREATE TYPE refund_status_enum AS ENUM (
     'NONE',
-    'REFUND_PENDING',           -- Refund initiated in backend; queued for gateway API
-    'REFUND_PROCESSING',        -- Gateway accepted refund request; awaiting bank rail settlement
-    'REFUNDED',                 -- Final settlement confirmed via gateway webhook / bank UTR
-    'REFUND_FAILED'             -- Gateway or bank rail rejected refund; requires ops intervention
+    'REFUND_ELIGIBLE',          -- Qualification verified against cancellation or recovery policy
+    'REFUND_REQUESTED',         -- Queued for gateway API execution in outbox
+    'GATEWAY_ACCEPTED',         -- Gateway acknowledged refund request with refund_id
+    'REFUND_PROCESSING',        -- Gateway processing on banking rails
+    'REFUND_SETTLED',           -- Settlement confirmed via gateway webhook with bank UTR
+    'REFUND_FAILED'             -- Gateway or bank rail rejected refund; requires manual ops review
 );
 
 -- Enumeration of Vehicle Categories

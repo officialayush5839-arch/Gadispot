@@ -1,10 +1,10 @@
-# SmartPark Exchange — High-Level System Architecture Specification
+# Gadispot (formerly SmartPark Exchange) — High-Level System Architecture Specification
 
-> **Document Version:** 1.0.0  
+> **Document Version:** 2.3.0  
 > **Date:** 2026-10-31  
 > **Authors:** Principal Software Architect, Senior Backend Architect, DevOps Lead  
 > **Target Deployment:** Cloud-Hosted Modular Monolith (AWS Mumbai / GCP Mumbai)  
-> **Status:** Approved Engineering Specification  
+> **Status:** Approved Engineering Specification (V2.3 Harmonized)  
 
 ---
 
@@ -36,7 +36,7 @@ Instead, SmartPark is architected as an **In-Process Modular Monolith** built on
 |   |             |                       |                        |                            |   |
 |   |   +---------v---------+   +---------v----------+   +---------v---------+                  |   |
 |   |   |  Unified Bookings |   |   Access Control   |   |   GPRP Recovery   |                  |   |
-|   |   |  - 5-Min Holds    |   |  - Opaque Tokens   |   |  - Spatial Alt    |                  |   |
+|   |   |  - 480s Holds     |   |  - Opaque Tokens   |   |  - Spatial Alt    |                  |   |
 |   |   |  - Exclusion Lock |   |  - Guard Scanning  |   |  - Incident State |                  |   |
 |   |   +---------+---------+   +---------+----------+   +---------+---------+                  |   |
 |   |             |                       |                        |                            |   |

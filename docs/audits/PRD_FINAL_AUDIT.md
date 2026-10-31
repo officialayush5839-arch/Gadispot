@@ -74,9 +74,9 @@ An exhaustive technical re-audit was executed across the entire 18-document spec
 
 ### Authorization Scope:
 The engineering team is authorized to begin **Sprint 0 / Sprint 1 execution**:
-1. Deploy PostgreSQL 16 + PostGIS Docker container environment with Alembic migration pipeline applying [`DATABASE_DESIGN.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/technical/DATABASE_DESIGN.md) (including GiST exclusion locks and `trg_verify_journal_balance` triggers).
-2. Scaffold the in-process modular monolith FastAPI backend per [`ARCHITECTURE.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/technical/ARCHITECTURE.md).
-3. Implement the Two-Tier Expiration Engine and automated test suite covering `TS-01` through `TS-20` per [`TEST_STRATEGY.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/quality/TEST_STRATEGY.md).
-4. Initialize the Flutter mobile application workspace with dynamic role shells (`driver`, `owner`, `guard`, `ops`) per [`SCREEN_REQUIREMENTS.md`](file:///c:/Users/ARYAN%20-%20AYUSH/OneDrive/Desktop/Gadispot/docs/product/SCREEN_REQUIREMENTS.md).
+1. Deploy PostgreSQL 16 + PostGIS Docker container environment with Alembic migration pipeline applying [`DATABASE_DESIGN.md`](docs/technical/DATABASE_DESIGN.md) (including GiST exclusion locks and `trg_verify_journal_balance` triggers).
+2. Scaffold the in-process modular monolith FastAPI backend per [`ARCHITECTURE.md`](docs/technical/ARCHITECTURE.md).
+3. Implement the Two-Tier Expiration Engine and automated test suite covering `TS-01` through `TS-20` per [`TEST_STRATEGY.md`](docs/quality/TEST_STRATEGY.md).
+4. Initialize the Flutter mobile application workspace with dynamic role shells (`driver`, `owner`, `guard`, `ops`) per [`SCREEN_REQUIREMENTS.md`](docs/product/SCREEN_REQUIREMENTS.md).
 
 *Commercial pilot launch remains gated on formal payment aggregator merchant onboarding and telecom DLT registration.*
