@@ -45,3 +45,6 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Agent scratch & state directories
+.agents/

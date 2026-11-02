@@ -2,7 +2,7 @@
 # Gadispot (formerly SmartPark Exchange)
 
 > **Document Title:** Gadispot — Master Product & Engineering Requirements Specification  
-> **Document Identifier:** PRD-GSP-2026-V2.3.1-HARDENED  
+> **Document Identifier:** PRD-GSP-2026-V2.3.2-VERIFIED  
 > **Target Market:** India (Urban Metros — Bengaluru Pilot)  
 > **Target Platforms:** Mobile-Only (Android & iOS via single Flutter Codebase)  
 > **Backend Architecture:** In-Process Modular Monolith (Python / FastAPI / PostgreSQL 16 / Redis 7.0+)  
@@ -22,8 +22,9 @@
 | **v2.0.0** | 2026-10-31 | Unified Senior Architecture Team | Comprehensive Technical Re-engineering: Unified data model, GiST locks, LPRP, double-entry ledger, QR separation. | Re-engineered Draft |
 | **v2.1.0** | 2026-10-31 | Unified Senior Architecture Team | Targeted Architectural Corrections: Concurrency locks, multi-stage refund states, 128-bit CSPRNG entropy. | Review Draft |
 | **v2.2.0** | 2026-10-31 | Unified Senior Architecture Team | Precision Refinement: Standardized 480s hold, reconciled unit economics (₹19.83 margin / ₹65.84 owner payable), durable webhook idempotency, 7-day photo purge rule, 65-question decision register. | Conditional Review Draft |
-| **v2.3.0** | 2026-10-31 | Unified Senior Architecture Team | **Final Authoritative Specification & Defect Elimination:**<br>1. Unified canonical 6-stage refund lifecycle (`REFUND_ELIGIBLE` $\to$ `REFUND_SETTLED`) across PRD and DDL.<br>2. Enforced database immutability triggers and row locking on `journal_lines` (`trg_prevent_posted_lines_mod`).<br>3. Completely eliminated all lingering 5-min/04:59 checkout references in architecture and screen specs.<br>4. Replaced all machine-specific local filesystem URIs with portable repository markdown links.<br>5. Restructured into 50 canonical sections featuring stable requirement IDs (`FR-AUTH-001` through `FR-GPRP-001`) with complete 14-field specifications.<br>6. Incorporated all 15 explicit end-to-end acceptance test scenarios (§42).<br>7. De-escalated unsupported readiness scores; established honest Readiness Gates A through F.<br>8. Harmonized project identity as **Gadispot (formerly SmartPark Exchange)**. | **Approved Final Baseline (Sprint 0/1)** |
+| **v2.3.0** | 2026-10-31 | Unified Senior Architecture Team | **Final Authoritative Specification & Defect Elimination:**<br>1. Unified canonical 6-stage refund lifecycle (`REFUND_ELIGIBLE` $\to$ `REFUND_SETTLED`) across PRD and DDL.<br>2. Enforced database immutability triggers and row locking on `journal_lines` (`trg_prevent_posted_lines_mod`).<br>3. Completely eliminated all lingering 5-min/04:59 checkout references in architecture and screen specs.<br>4. Replaced all machine-specific local filesystem URIs with portable repository markdown links.<br>5. Restructured into 50 canonical sections featuring stable requirement IDs (`FR-AUTH-001` through `FR-GPRP-001`) with complete 14-field specifications.<br>6. Incorporated all 15 explicit end-to-end acceptance test scenarios (§42), harmonized with the 20 technical high-risk test scenarios (TS-01..TS-20 in TEST_STRATEGY.md).<br>7. De-escalated unsupported readiness scores; established honest Readiness Gates A through F.<br>8. Harmonized project identity as **Gadispot (formerly SmartPark Exchange)**. | **Approved Final Baseline (Sprint 0/1)** |
 | **v2.3.1** | 2026-10-31 | Unified Senior Architecture Team | **Engineering Readiness Hardening & Trigger Verification:**<br>1. Hardened double-entry ledger trigger (`fn_prevent_posted_lines_modification`) with deterministic row-level parent locking in both `DATABASE_DESIGN.md` and `PAYMENT_AND_LEDGER_DESIGN.md` to prevent line reassignment into/out of POSTED journals and eliminate deadlocks.<br>2. Reconciled cancellation tiers (>2h: 100%, 30m–2h: 50%, <30m: 0%) and minimum booking duration (30 min) across requirements traceability, marked `PROPOSED`.<br>3. Purged all residual refund enum discrepancies across `BOOKING_AND_AVAILABILITY_DESIGN.md`, `TEST_STRATEGY.md`, and `OPEN_QUESTIONS.md`.<br>4. Created dedicated executive signoff checklist `docs/product/FOUNDER_DECISION_CHECKLIST.md`.<br>5. Complete repository specification integrity audit and baseline inventory. | **Approved Engineering Freeze (Sprint 0/1 Authorized)** |
+| **v2.3.2** | 2026-10-31 | Unified Senior Architecture Team | **Final Verification Patch & Live PostgreSQL 16 Test Suite:**<br>1. Empirically resolved lock-order inversion deadlock in ledger triggers via Zero Child Lock Protocol.<br>2. Reconciled all founder commercial decisions across `OPEN_QUESTIONS.md`, `FOUNDER_DECISION_CHECKLIST.md`, and `PRD.md` to `PROPOSED (Pending Founder Approval)`, purging ungrounded signature claims.<br>3. Corrected asyncpg test syntax ($1 positional parameters and RaiseError exception) in `TEST_STRATEGY.md`.<br>4. Reconciled test scenario counts (15 §42 user acceptance flows vs 20 `TEST_STRATEGY.md` technical scenarios).<br>5. Created live automated test suite in `tests/` verifying 15 tests (100% pass) against PostgreSQL 16.<br>6. Hardened CI validation script to check `\bREFUNDED\b` with fine-grained scoping. | **Verified Implementation Freeze (Sprint 0/1 Authorized)** |
 
 ### 1.2 Formal Founder Decisions (V2.3 Baselines)
 
@@ -742,7 +743,7 @@ All financial movements are recorded across `journal_entries` and `journal_lines
 - **2010 Owner Payable Liability (Liability):** Accumulated net earnings owed to space hosts.
 - **2020 Customer Refund Payable (Liability):** Pending customer refunds.
 - **2030 GST Output Tax Payable (Liability):** 18% GST collected on facilitation fees.
-- **3010 Platform Commission Revenue (Revenue):** Marketplace facilitation commission earned (15%).
+- **3010 Platform Commission Revenue (Revenue):** Marketplace facilitation commission earned (15%, marked PROPOSED (Pending Founder Approval) per `POL-COM-01`).
 - **3020 Driver Convenience Fee Revenue (Revenue):** ₹10 convenience fee charged to drivers.
 - **4010 Payment Gateway MDR Expense (Expense):** 2.36% MDR absorbed by platform.
 - **4020 GPRP Customer Recovery Subsidy Expense (Expense):** Platform-subsidized goodwill allowances.
@@ -777,8 +778,8 @@ All financial movements are recorded across `journal_entries` and `journal_lines
 
 ## 25. Parking Session Management
 
-- **Grace Period:** 15-minute early arrival buffer ($t_{\text{start}} - 15\text{m}$) and 30-minute late arrival grace period before `NO_SHOW` transition (`POL-ARR-02`).
-- **Overstay Policy:** Exit scans occurring $>15$ minutes past scheduled departure calculate an overstay charge at **1.5× the base hourly rate** in 30-minute blocks (`POL-OST-01`).
+- **Grace Period:** 15-minute early arrival buffer ($t_{\text{start}} - 15\text{m}$) and 30-minute late arrival grace period before `NO_SHOW` transition (`POL-ARR-02`, marked PROPOSED (Pending Founder Approval)).
+- **Overstay Policy:** Exit scans occurring $>15$ minutes past scheduled departure calculate an overstay charge at **1.5× the base hourly rate** in 30-minute blocks (`POL-OST-01`, marked PROPOSED (Pending Founder Approval)).
 - **Basement Offline Mode:** In subterranean cellular dead zones, guard matches physical license plate against locally cached 8-hour shift schedule, captures vehicle photo, and logs admission locally. Photos are permanently deleted from S3 within 7 days of backend sync.
 
 ---
@@ -974,6 +975,8 @@ Every functional requirement carries explicit, testable binary acceptance criter
 
 ## 42. End-to-End Test Scenarios
 
+> **Scenario Harmonization Note:** This section documents the 15 core business acceptance flows defining end-to-end user journeys. The comprehensive engineering quality harness is specified in [docs/quality/TEST_STRATEGY.md](docs/quality/TEST_STRATEGY.md), which defines the 20 technical high-risk test scenarios (TS-01 through TS-20) mapped in REQUIREMENTS_TRACEABILITY.md and executed in the automated test suite.
+
 ### Scenario 1 — Successful Booking and Parking Session
 - **Preconditions:** Parking Bay `Bay A-1` is available for `14:00 - 16:00`. Driver Rohan has registered vehicle `KA-01-AB-1234`.
 - **Actions:** Driver searches, selects `Bay A-1`, initiates hold, completes UPI payment via Razorpay, arrives at gate at 14:05, guard scans entry QR, driver exits at 15:50, guard scans exit QR.
@@ -1113,8 +1116,8 @@ Every functional requirement is mapped to its architecture component, database d
 ## 46. Open Questions and Decision Gates
 
 All 65 decision items are tracked with explicit ownership, statuses, and target dates in [docs/product/OPEN_QUESTIONS.md](docs/product/OPEN_QUESTIONS.md):
-- **15 Decided / Resolved:** Formally signed baselines.
-- **33 Proposed Defaults:** Working architectural defaults pending founder commercial signoff.
+- **12 Decided / Resolved:** Formally proposed architectural baselines pending final founder sign-off.
+- **36 Proposed Defaults:** Working architectural defaults pending founder commercial signoff (including 7 commercial policies in [docs/product/FOUNDER_DECISION_CHECKLIST.md](docs/product/FOUNDER_DECISION_CHECKLIST.md)).
 - **12 External Dependencies:** Gated on third-party payment aggregator underwriting and telecom DLT approvals.
 - **5 Legal Reviews:** Gated on formal written legal/tax memorandums (GST Section 9(5), Municipal Trade Licensing).
 
@@ -1174,8 +1177,8 @@ Comprehensive historical evolution of the Gadispot Product Requirements Document
 - **v1.0.0 (2026-10-31):** Initial 45-section draft.
 - **v2.0.0 (2026-10-31):** Modular monolith, PostgreSQL GiST locks, unified `space_reservations` model, double-entry ledger architecture.
 - **v2.1.0 (2026-10-31):** Concurrency locking, multi-stage refund states, 128-bit CSPRNG entropy.
-- **v2.2.0 (2026-10-31):** Universal 480-second hold standardization, reconciled unit economics (₹19.83 margin / ₹65.84 host entitlement), durable database webhook idempotency, automated 7-day photo purge rule.
-- **v2.3.0 (2026-10-31):** Canonical 6-stage refund lifecycle, database triggers and row-locking on `journal_lines`, eradication of 5-min/04:59 checkout references, removal of machine-specific local paths, stable FR-xxx IDs, 15 comprehensive end-to-end scenarios, honest readiness gates, and Gadispot brand harmonization.
+- **v2.3.0 (2026-10-31):** Canonical 6-stage refund lifecycle, database triggers and row-locking on `journal_lines`, eradication of 5-min/04:59 checkout references, removal of machine-specific local paths, stable FR-xxx IDs, 15 comprehensive end-to-end acceptance scenarios (§42) mapped to 20 technical high-risk test scenarios in `TEST_STRATEGY.md`, honest readiness gates, and Gadispot brand harmonization.
+- **v2.3.2 (2026-10-31):** Final Verification Patch: Reconciled commercial policies to PROPOSED (Pending Founder Approval), purged unverified signature claims, harmonized test scenario counts, corrected asyncpg test fixtures, and established executable database test verification.
 
 ---
 

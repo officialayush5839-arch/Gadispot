@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Gadispot Specification Suite Integrity & Link Verification Script
-Validates PRD V2.3.1 harmonization, relative link integrity, and domain constraints.
+Validates PRD V2.3.2 harmonization, relative link integrity, and domain constraints.
 """
 
 import os
@@ -9,47 +9,62 @@ import re
 import sys
 
 def check_banned_patterns():
+    # Format: (pattern, description, regex_flags)
     banned_patterns = [
-        (r'300 Seconds', 'Obsolete 300s hold TTL'),
-        (r'\b300s\b', 'Obsolete 300s hold TTL'),
-        (r'5-minute hold', 'Obsolete 5-minute hold TTL'),
-        (r'5-minute TTL', 'Obsolete 5-minute hold TTL'),
-        (r'compatibility\s*>=', 'Unsupported ordinal compatibility comparison'),
-        (r'escrow-compliant', 'Inaccurate regulatory escrow terminology'),
-        (r'instant.*refund', 'Inaccurate customer instant refund promise'),
-        (r'\bREFUND_PENDING\b', 'Obsolete non-canonical refund enum'),
+        (r'300 Seconds', 'Obsolete 300s hold TTL', re.IGNORECASE),
+        (r'\b300s\b', 'Obsolete 300s hold TTL', re.IGNORECASE),
+        (r'5-minute hold', 'Obsolete 5-minute hold TTL', re.IGNORECASE),
+        (r'5-minute TTL', 'Obsolete 5-minute hold TTL', re.IGNORECASE),
+        (r'compatibility\s*>=', 'Unsupported ordinal compatibility comparison', re.IGNORECASE),
+        (r'escrow-compliant', 'Inaccurate regulatory escrow terminology', re.IGNORECASE),
+        (r'instant.*refund', 'Inaccurate customer instant refund promise', re.IGNORECASE),
+        # Strict case-sensitive matching for obsolete uppercase enum tokens (prevents false positives on English prose)
+        (r'\bREFUND_PENDING\b', 'Obsolete non-canonical refund enum; canonical is REFUND_INITIATED/COMPLETED', 0),
+        (r'\bREFUNDED\b', 'Obsolete non-canonical refund enum; canonical is REFUND_INITIATED/COMPLETED', 0),
     ]
 
-    excluded_files = {
-        'PRD.md',  # Contains historical changelog entries
-        os.path.normpath('docs/technical/BOOKING_AND_AVAILABILITY_DESIGN.md'),  # Contains explanatory warning forbidding compatibility >=
-    }
-
+    ignored_dirs = {'.git', '.agents', '.venv', 'venv', 'node_modules', '__pycache__'}
     violations = []
-    for root, _, files in os.walk('.'):
-        if '.git' in root or os.path.normpath('docs/audits') in os.path.normpath(root):
+
+    for root, dirs, files in os.walk('.'):
+        # Exclude directories in-place to avoid descending into them
+        dirs[:] = [d for d in dirs if d not in ignored_dirs]
+
+        norm_root = os.path.normpath(root)
+        if any(ignored in norm_root.split(os.sep) for ignored in ignored_dirs) or os.path.normpath('docs/audits') in norm_root:
             continue
+
         for f in files:
             if f.endswith('.md'):
                 rel_path = os.path.normpath(os.path.join(root, f))
-                if rel_path in excluded_files:
-                    continue
                 with open(rel_path, 'r', encoding='utf-8') as fp:
-                    content = fp.read()
-                for pat, desc in banned_patterns:
-                    matches = re.findall(pat, content, re.IGNORECASE)
-                    if matches:
-                        violations.append(f"{rel_path}: Found {len(matches)} match(es) for '{pat}' ({desc})")
+                    for line_no, line in enumerate(fp, 1):
+                        for pat, desc, flags in banned_patterns:
+                            # Explanatory exception: allow 'compatibility >=' only in explanatory context forbidding scalar comparisons
+                            if pat == r'compatibility\s*>=' and 'compatibility' in line.lower() and (
+                                'cannot be evaluated with scalar comparisons' in line or
+                                'must not use scalar comparisons' in line.lower()
+                            ):
+                                continue
+
+                            matches = re.findall(pat, line, flags)
+                            if matches:
+                                violations.append(f"{rel_path}:{line_no}: Found {len(matches)} match(es) for '{pat}' ({desc})")
 
     return violations
 
 def check_link_integrity():
     link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+    ignored_dirs = {'.git', '.agents', '.venv', 'venv', 'node_modules', '__pycache__'}
     violations = []
 
-    for root, _, files in os.walk('.'):
-        if '.git' in root:
+    for root, dirs, files in os.walk('.'):
+        dirs[:] = [d for d in dirs if d not in ignored_dirs]
+
+        norm_root = os.path.normpath(root)
+        if any(ignored in norm_root.split(os.sep) for ignored in ignored_dirs):
             continue
+
         for f in files:
             if f.endswith('.md'):
                 file_path = os.path.normpath(os.path.join(root, f))
@@ -91,13 +106,13 @@ def check_hardened_triggers():
 
 def main():
     print("=" * 70)
-    print("GADISPOT PRD V2.3.1 SPECIFICATION INTEGRITY VERIFICATION SUITE")
+    print("GADISPOT PRD V2.3.2 SPECIFICATION & DOCUMENT HARMONIZATION SUITE")
     print("=" * 70)
 
     all_passed = True
 
     # 1. Banned patterns
-    print("\n[1/3] Verifying specification harmonization and anti-patterns...")
+    print("\n[1/3] Verifying specification documentation harmonization & banned pattern compliance...")
     banned_violations = check_banned_patterns()
     if banned_violations:
         print(f"FAILED: Found {len(banned_violations)} banned pattern violations:")
@@ -118,8 +133,8 @@ def main():
     else:
         print("PASSED: All Markdown relative links resolve to existing files.")
 
-    # 3. Hardened triggers
-    print("\n[3/3] Verifying database trigger immutability & deterministic locking...")
+    # 3. Hardened trigger specs
+    print("\n[3/3] Verifying documentation references to hardened trigger specifications...")
     trigger_violations = check_hardened_triggers()
     if trigger_violations:
         print(f"FAILED: Found {len(trigger_violations)} trigger specification defects:")
@@ -127,11 +142,13 @@ def main():
             print(f"  - {v}")
         all_passed = False
     else:
-        print("PASSED: Immutable ledger triggers verified with deterministic parent locking.")
+        print("PASSED: DDL documentation contains required trigger specifications.")
+        print("        (Note: Document harmonization check only; real execution verified in pytest database test suite)")
 
     print("\n" + "=" * 70)
     if all_passed:
-        print("OVERALL RESULT: ALL SPECIFICATION SUITE CHECKS PASSED (100% GREEN)")
+        print("OVERALL RESULT: ALL SPECIFICATION HARMONIZATION CHECKS PASSED (100% GREEN)")
+        print("                Run 'pytest tests/' to verify executable database integrity.")
         print("=" * 70)
         sys.exit(0)
     else:

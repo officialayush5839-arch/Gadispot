@@ -1,10 +1,10 @@
 # Gadispot (formerly SmartPark Exchange) — Architectural Decision Log (ADR)
 
-> **Document Version:** 2.3.0  
-> **Date:** 2026-10-31  
+> **Document Version:** 2.3.2  
+> **Date:** October 31, 2026  
 > **Format:** Michael Nygard ADR Template  
 > **Audience:** Lead Architects, Engineering Team, Product Managers  
-> **Status:** Baselined & Approved (V2.3 Harmonized)  
+> **Status:** Baselined & Approved (V2.3.2 Harmonized)  
 
 ---
 

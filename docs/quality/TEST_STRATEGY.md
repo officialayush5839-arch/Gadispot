@@ -1,10 +1,10 @@
-# Gadispot (formerly SmartPark Exchange) — Comprehensive Quality Assurance & Test Strategy (V2.3)
+# Gadispot (formerly SmartPark Exchange) — Comprehensive Quality Assurance & Test Strategy (V2.3.2)
 
-> **Document Version:** 2.3.0  
+> **Document Version:** 2.3.2  
 > **Date:** October 31, 2026  
 > **Authors:** QA & Test Strategy Lead, Senior Backend Engineer, Mobile Test Architect  
 > **Test Frameworks:** Pytest (Backend / DB), Flutter Test / Integration Test (Mobile), Locust (Performance)  
-> **Status:** Authoritative Engineering Test Catalogue (Targeted Revision V2.3)  
+> **Status:** Authoritative Engineering Test Catalogue (Targeted Revision V2.3.2 Harmonized)  
 
 ---
 
@@ -249,19 +249,19 @@ async def test_concurrent_booking_exclusion(app_client: AsyncClient, test_space_
     assert status_codes.count(201) == 1, "Exactly one reservation hold can be granted"
 ```
 
-### 3.2 Ledger Balancing Invariant Test (`tests/financial/test_ledger_invariants.py`)
+### 3.2 Ledger Balancing Invariant Test (`tests/database/test_ledger_immutability.py`)
 ```python
 import pytest
-from asyncpg.exceptions import RaiseException
+from asyncpg.exceptions import RaiseError
 
 @pytest.mark.asyncio
-async def test_ledger_rejects_unbalanced_journal(db_session):
+async def test_ledger_rejects_unbalanced_journal(db_conn):
     """
     TS-16: Verifies that the database trigger trg_verify_journal_balance
     rejects any attempt to post an unbalanced journal entry (Debits != Credits).
     """
     # Create draft journal entry
-    journal_id = await db_session.fetchval(
+    journal_id = await db_conn.fetchval(
         """
         INSERT INTO journal_entries (journal_number, transaction_reference, transaction_type, posting_status)
         VALUES ('TEST-JRN-UNBALANCED', 'REF-001', 'TEST', 'DRAFT')
@@ -270,21 +270,21 @@ async def test_ledger_rejects_unbalanced_journal(db_session):
     )
 
     # Insert unbalanced lines (Debit 9180 paise, Credit 5000 paise)
-    await db_session.execute(
+    await db_conn.execute(
         """
         INSERT INTO journal_lines (journal_id, line_number, account_code, entry_side, amount_in_paise)
         VALUES 
-            (:jid, 1, '1010', 'DEBIT', 9180),
-            (:jid, 2, '2010', 'CREDIT', 5000)
+            ($1, 1, '1010', 'DEBIT', 9180),
+            ($1, 2, '2010', 'CREDIT', 5000)
         """,
-        {"jid": journal_id}
+        journal_id
     )
 
     # Attempt to post journal -> Must raise database trigger exception
-    with pytest.raises(RaiseException) as excinfo:
-        await db_session.execute(
-            "UPDATE journal_entries SET posting_status = 'POSTED' WHERE id = :jid",
-            {"jid": journal_id}
+    with pytest.raises(RaiseError) as excinfo:
+        await db_conn.execute(
+            "UPDATE journal_entries SET posting_status = 'POSTED' WHERE id = $1",
+            journal_id
         )
     assert "does not balance" in str(excinfo.value)
 ```

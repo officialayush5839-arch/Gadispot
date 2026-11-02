@@ -1,8 +1,8 @@
-# Gadispot — Founder Decision & Executive Signoff Checklist (V2.3.1)
+# Gadispot — Founder Decision & Executive Signoff Checklist (V2.3.2)
 
-> **Document Version:** 2.3.1  
+> **Document Version:** 2.3.2  
 > **Last Updated:** October 31, 2026  
-> **Target Milestone:** Implementation Freeze Signoff  
+> **Target Milestone:** Implementation Freeze Signoff (V2.3.2 Harmonized)  
 > **Audience:** Founders, Executive Leadership, Legal Counsel, Technical Leads  
 
 ---
@@ -11,7 +11,7 @@
 
 This document provides a consolidated executive signoff checklist for Gadispot (formerly SmartPark Exchange). It isolates commercial policies, business risk tolerances, and external contractual dependencies from technical defaults so founders and legal counsel can review and sign off on key operational parameters before application code deployment.
 
-The architecture and engineering specifications are complete to V2.3.1 standards. Implementation of commercial workflows proceeds under the proposed defaults documented herein until formal founder signature.
+The architecture and engineering specifications are complete to V2.3.2 standards. Implementation of commercial workflows proceeds under the proposed defaults documented herein until formal founder signature.
 
 ---
 
@@ -35,13 +35,13 @@ The following operational policies are modeled in the specification as **`PROPOS
 
 | Policy ID | Policy Description | Proposed Baseline Specification | Rationale & Trade-offs | Founder Action Required | Decision Status |
 |---|---|---|---|---|---|
-| **POL-CAN-01** | Cancellation Refund Tiers (`OQ-BIZ-004`) | • **>2 Hours before start:** 100% parking fee refunded.<br>• **30m – 2 Hours before start:** 50% parking fee refunded.<br>• **<30m before start / Post-start:** 0% refund (100% forfeited).<br>*Platform convenience fee is non-refundable across all tiers.* | Balances driver flexibility with host schedule certainty. Aligns with major mobility platforms in India. | Sign off on refund percentage thresholds and convenience fee retention. | `PROPOSED` |
-| **POL-DUR-01** | Minimum Booking Duration (`OQ-BIZ-002`) | **30 Minutes**. | Accommodates short quick errands (drop-offs, bank visits). 1-hour minimum would increase driver drop-off friction. | Approve 30-minute minimum increment vs 1-hour minimum. | `PROPOSED` |
-| **POL-COM-01** | Platform Commission Rate (`OQ-BIZ-001`) | **Flat 15.0%** of gross parking fee for Bengaluru pilot. | Covers payment gateway MDR (2.36%), cloud infrastructure, customer support, and pilot acquisition subsidies. | Approve 15% rate or adjust for pilot launch incentives. | `PROPOSED` |
-| **POL-SUB-01** | GPRP Alternative Parking Subsidy Cap (`OQ-BIZ-013`) | **Up to ₹100** absorbed by platform (Account 4020) if alternative bay has higher hourly rate. | Prevents driver price shock when displaced through no fault of their own. Caps platform financial exposure per incident. | Approve ₹100 maximum subsidy per reroute incident. | `PROPOSED` |
-| **POL-OST-01** | Overstay Penalty Tariff (`OQ-BIZ-007`) | **1.5× Base Hourly Rate**, billed in 30-minute blocks. | Discourages parking hogging that disrupts subsequent reservations without being punitive enough to trigger chargebacks. | Approve 1.5× multiplier vs flat penalty. | `PROPOSED` |
-| **POL-POT-01** | Host Payout Schedule & Minimum Balance (`OQ-BIZ-008`) | **Weekly batch payouts (Tuesdays)** for accumulated balances $\ge ₹500$. | Minimizes bank payout IMPS API charges (₹3–₹5 per transfer) and operational reconciliation overhead. | Approve weekly Tuesday batch and ₹500 payout threshold. | `PROPOSED` |
-| **POL-ARR-02** | Driver No-Show Grace Period (`OQ-BIZ-006`) | **Exactly 30 Minutes** past scheduled booking start time before marking `NO_SHOW`. | Accommodates Bengaluru peak traffic delays while freeing up the bay if driver abandons booking. | Approve 30-minute grace window. | `PROPOSED` |
+| **POL-CAN-01** | Cancellation Refund Tiers (`OQ-BIZ-004`) | • **>2 Hours before start:** 100% parking fee refunded.<br>• **30m – 2 Hours before start:** 50% parking fee refunded.<br>• **<30m before start / Post-start:** 0% refund (100% forfeited).<br>*Platform convenience fee is non-refundable across all tiers.* | Balances driver flexibility with host schedule certainty. Aligns with major mobility platforms in India. | Sign off on refund percentage thresholds and convenience fee retention. | `PROPOSED (Pending Founder Approval)` |
+| **POL-DUR-01** | Minimum Booking Duration (`OQ-BIZ-002`) | **30 Minutes**. | Accommodates short quick errands (drop-offs, bank visits). 1-hour minimum would increase driver drop-off friction. | Approve 30-minute minimum increment vs 1-hour minimum. | `PROPOSED (Pending Founder Approval)` |
+| **POL-COM-01** | Platform Commission Rate (`OQ-BIZ-001`) | **Flat 15.0%** of gross parking fee for Bengaluru pilot. | Covers payment gateway MDR (2.36%), cloud infrastructure, customer support, and pilot acquisition subsidies. | Approve 15% rate or adjust for pilot launch incentives. | `PROPOSED (Pending Founder Approval)` |
+| **POL-SUB-01** | GPRP Alternative Parking Subsidy Cap (`OQ-BIZ-013`) | **Up to ₹100** absorbed by platform (Account 4020) if alternative bay has higher hourly rate. | Prevents driver price shock when displaced through no fault of their own. Caps platform financial exposure per incident. | Approve ₹100 maximum subsidy per reroute incident. | `PROPOSED (Pending Founder Approval)` |
+| **POL-OST-01** | Overstay Penalty Tariff (`OQ-BIZ-007`) | **1.5× Base Hourly Rate**, billed in 30-minute blocks. | Discourages parking hogging that disrupts subsequent reservations without being punitive enough to trigger chargebacks. | Approve 1.5× multiplier vs flat penalty. | `PROPOSED (Pending Founder Approval)` |
+| **POL-POT-01** | Host Payout Schedule & Minimum Balance (`OQ-BIZ-008`) | **Weekly batch payouts (Tuesdays)** for accumulated balances $\ge ₹500$. | Minimizes bank payout IMPS API charges (₹3–₹5 per transfer) and operational reconciliation overhead. | Approve weekly Tuesday batch and ₹500 payout threshold. | `PROPOSED (Pending Founder Approval)` |
+| **POL-ARR-02** | Driver No-Show Grace Period (`OQ-BIZ-006`) | **Exactly 30 Minutes** past scheduled booking start time before marking `NO_SHOW`. | Accommodates Bengaluru peak traffic delays while freeing up the bay if driver abandons booking. | Approve 30-minute grace window. | `PROPOSED (Pending Founder Approval)` |
 
 ---
 
@@ -61,11 +61,13 @@ The engineering architecture is fully specified to support these workflows; howe
 
 ## 5. Formal Executive Signoff Table
 
-Upon review by the executive leadership, signatures below convert `PROPOSED` defaults to `FOUNDER_APPROVED` authoritative policy:
+> **Current Execution Status:** PENDING — No founder or executive signatures are executed on record. All commercial policies proceed under working technical defaults pending formal execution.
+
+Upon review by the executive leadership, signatures below convert `PROPOSED (Pending Founder Approval)` defaults to `FOUNDER_APPROVED` authoritative policy:
 
 | Role | Signatory Name | Decision Scope | Signature | Approval Date |
 |---|---|---|---|---|
 | **Chief Executive Officer / Founder** | _______________________ | Commercial Policies, Commission (15%), Cancellation Tiers, Minimum Duration (30m) | _______________________ | _____ / _____ / 2026 |
-| **Chief Technology Officer / Co-Founder** | _______________________ | Architecture V2.3.1 Freeze, Hosting Mumbai `ap-south-1`, Offline Guard Exception | _______________________ | _____ / _____ / 2026 |
+| **Chief Technology Officer / Co-Founder** | _______________________ | Architecture V2.3.2 Freeze, Hosting Mumbai `ap-south-1`, Offline Guard Exception | _______________________ | _____ / _____ / 2026 |
 | **Head of Legal & Compliance** | _______________________ | GST 9(1) vs 9(5) Memo, IT Act Sec 79 Non-Bailment Terms, DPDPA 2023 Consent | _______________________ | _____ / _____ / 2026 |
 | **Head of Finance & Operations** | _______________________ | Weekly Batch Payouts (₹500 threshold), GPRP Subsidy Cap (₹100), Bank KYC | _______________________ | _____ / _____ / 2026 |

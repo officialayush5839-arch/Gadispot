@@ -126,7 +126,7 @@ Unlike historical drafts that claimed all questions were resolved, Specification
 +-------------------+---------------------+---------------------+-----------------------+
 | Status Category   | Item Count          | Percentage          | Governance Status     |
 +-------------------+---------------------+---------------------+-----------------------+
-| DECIDED / RESOLVED| 15 Items            | 23.1%               | Signed by Leadership  |
+| DECIDED / RESOLVED| 15 Items            | 23.1%               | Working Technical Baselines (Founder Signatures Pending) |
 | PROPOSED DEFAULT  | 33 Items            | 50.8%               | Working Default (Safe)|
 | EXTERNAL DEPENDENCY| 12 Items           | 18.5%               | Gated on 3rd-Party PA |
 | LEGAL PENDING     | 5 Items             |  7.6%               | Gated on Legal Counsel|
