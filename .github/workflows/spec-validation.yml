@@ -19,6 +19,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Validation Dependencies
+        run: |
+          pip install pyyaml
+
       - name: Run Specification Verification Suite
         run: |
           python scripts/validate_spec.py
