@@ -54,7 +54,7 @@ class QrContainer extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'BAY IDENTIFIER',
+                    'ACTIVE PASS',
                     style: TextStyle(
                       color: Color(0xFF6B7280),
                       fontSize: 10,
@@ -139,7 +139,7 @@ class QrContainer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
                     child: const Text(
-                      'PASS CONSUMED',
+                      'CONSUMED',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,

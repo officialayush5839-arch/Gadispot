@@ -32,12 +32,12 @@ class _GuardShellState extends State<GuardShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.qr_code_scanner_outlined),
             activeIcon: Icon(Icons.qr_code_scanner),
-            label: 'Gate Scanner',
+            label: 'Scan Pass',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long),
-            label: 'Admission Logs',
+            label: 'Admissions',
           ),
         ],
       ),

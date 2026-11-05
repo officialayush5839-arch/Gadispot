@@ -39,7 +39,7 @@ class _OwnerShellState extends State<OwnerShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.local_parking_outlined),
             activeIcon: Icon(Icons.local_parking),
-            label: 'Bays & Schedules',
+            label: 'Bays',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_wallet_outlined),
