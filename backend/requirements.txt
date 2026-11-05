@@ -1,0 +1,24 @@
+# Gadispot Backend Dependencies
+# Python >= 3.11
+
+# Core Framework & Validation
+fastapi>=0.115.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+uvicorn[standard]>=0.32.0
+
+# Database & Migrations
+sqlalchemy>=2.0.36
+asyncpg>=0.30.0
+alembic>=1.14.0
+
+# Caching & Communication
+redis>=5.2.0
+httpx>=0.28.0
+
+# Auth & Payments
+pyjwt>=2.10.0
+pyotp>=2.10.0
+qrcode[pil]>=8.0
+firebase-admin>=7.7.0
+

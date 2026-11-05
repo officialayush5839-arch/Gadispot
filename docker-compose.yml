@@ -1,0 +1,106 @@
+# ==============================================================================
+# Gadispot Master Docker Compose Configuration
+# Services: postgres (PostGIS 16-3.4), redis (7-alpine), backend (FastAPI)
+# Architecture: In-Process Modular Monolith with PostGIS Spatial & Redis Cache
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL 16 + PostGIS 3.4 Database Service
+  # Authoritative source of truth for reservations, spatial search, and general ledger
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: gadispot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gadispot}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - gadispot_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gadispot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - gadispot_network
+
+  # ----------------------------------------------------------------------------
+  # Redis 7 In-Memory Cache & Ephemeral Coordination Service
+  # Non-authoritative store for sliding-window rate limits, token blocklist, and hold timers
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: gadispot_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - gadispot_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - gadispot_network
+
+  # ----------------------------------------------------------------------------
+  # FastAPI Modular Monolith Backend Service
+  # RESTful API, Alembic database migrations, role-based security, and health probes
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gadispot_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/gadispot
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      DEBUG: "false"
+      LOG_LEVEL: INFO
+      HOST: 0.0.0.0
+      PORT: 8000
+      SECRET_KEY: ${SECRET_KEY:-development-insecure-secret-key-change-in-production-min32chars}
+      CORS_ORIGINS: "*"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - gadispot_network
+
+# ------------------------------------------------------------------------------
+# Persistent Storage Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  gadispot_pgdata:
+    name: gadispot_pgdata
+  gadispot_redisdata:
+    name: gadispot_redisdata
+
+# ------------------------------------------------------------------------------
+# Isolated Bridge Network
+# ------------------------------------------------------------------------------
+networks:
+  gadispot_network:
+    name: gadispot_network
+    driver: bridge

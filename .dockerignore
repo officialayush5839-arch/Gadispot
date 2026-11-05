@@ -1,0 +1,35 @@
+# Repository metadata
+.git/
+.github/
+.gitignore
+.agents/
+
+# Benchmarks and caches
+.benchmarks/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Mobile application client (not built into backend Docker image)
+mobile/
+
+# Documentation and specifications
+docs/
+*.md
+
+# Local test suites and data
+tests/
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Docker configuration files
+docker-compose*.yml

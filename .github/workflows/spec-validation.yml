@@ -1,4 +1,4 @@
-name: Specification & Database Verification CI
+name: Gadispot CI/CD Pipeline
 
 on:
   push:
@@ -7,10 +7,9 @@ on:
     branches: [ main, master ]
 
 jobs:
-  validate-specs:
-    name: Validate V2.3.2 Specification Harmonization
+  validate-specifications:
+    name: Specification & Docker Architecture Validation
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -23,14 +22,39 @@ jobs:
       - name: Run Specification Verification Suite
         run: |
           python scripts/validate_spec.py
+          python scripts/validate_docker_spec.py
 
-  database-tests:
-    name: Run PostgreSQL 16 Concurrency & Ledger Tests
+  backend-quality:
+    name: Backend Linting & Formatting Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Linting Tools
+        run: |
+          pip install ruff>=0.8.0
+
+      - name: Run Ruff Linter
+        run: |
+          ruff check backend/ --ignore E501,F401,F841,B008
+
+      - name: Run Ruff Formatter Check
+        run: |
+          ruff format --check backend/ || echo "Formatting suggestions logged."
+
+  backend-database-tests:
+    name: PostGIS 16 & Redis Integration Tests
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:16
+        image: postgis/postgis:16-3.4
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -39,6 +63,16 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -52,12 +86,48 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Test Dependencies
+      - name: Install Dependencies
         run: |
           pip install -r requirements-test.txt
 
-      - name: Run Pytest Database Test Suite
+      - name: Apply Alembic Migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/gadispot_test
+          PYTHONPATH: backend
+        run: |
+          alembic -c backend/alembic.ini upgrade head
+
+      - name: Run Full Pytest Integration Suite
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gadispot_test
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/gadispot_test
+          REDIS_URL: redis://localhost:6379/0
+          PYTHONPATH: backend
         run: |
           pytest tests/ -v
+
+  mobile-quality:
+    name: Flutter Analysis & Widget Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Run Flutter Analyzer
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run Flutter Widget Tests
+        run: flutter test

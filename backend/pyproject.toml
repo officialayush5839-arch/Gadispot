@@ -1,0 +1,47 @@
+[project]
+name = "gadispot-backend"
+version = "2.3.0"
+description = "Gadispot (formerly SmartPark Exchange) In-Process Modular Monolith Backend"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Gadispot Engineering Team" }
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "sqlalchemy>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "redis>=5.2.0",
+    "httpx>=0.28.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["../tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["alembic"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "W291", "W293", "F401", "F841"]

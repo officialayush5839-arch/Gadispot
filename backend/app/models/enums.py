@@ -1,0 +1,116 @@
+"""Canonical domain enums for Gadispot PostgreSQL 16 schema."""
+
+import enum
+
+
+class UserRoleEnum(str, enum.Enum):
+    DRIVER = "DRIVER"
+    OWNER = "OWNER"
+    GUARD = "GUARD"
+    OPERATIONS = "OPERATIONS"
+    ADMIN = "ADMIN"
+
+
+class PropertyTypeEnum(str, enum.Enum):
+    RESIDENTIAL_DRIVEWAY = "RESIDENTIAL_DRIVEWAY"
+    APARTMENT_SOCIETY = "APARTMENT_SOCIETY"
+    COMMERCIAL_BUILDING = "COMMERCIAL_BUILDING"
+    OPEN_PLOT = "OPEN_PLOT"
+
+
+class AuthorizationStatusEnum(str, enum.Enum):
+    DRAFT = "DRAFT"
+    PENDING_REVIEW = "PENDING_REVIEW"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
+
+
+class DocumentTypeEnum(str, enum.Enum):
+    PROPERTY_TAX_RECEIPT = "PROPERTY_TAX_RECEIPT"
+    SALE_DEED = "SALE_DEED"
+    ELECTRICITY_BILL = "ELECTRICITY_BILL"
+    SOCIETY_NOC = "SOCIETY_NOC"
+    LEASE_AGREEMENT = "LEASE_AGREEMENT"
+    COMMERCIAL_CONCESSION = "COMMERCIAL_CONCESSION"
+
+
+class VehicleCategoryEnum(str, enum.Enum):
+    TWO_WHEELER = "TWO_WHEELER"
+    HATCHBACK = "HATCHBACK"
+    SEDAN = "SEDAN"
+    SUV = "SUV"
+    EV_FOUR_WHEELER = "EV_FOUR_WHEELER"
+    EV_TWO_WHEELER = "EV_TWO_WHEELER"
+
+
+class SpaceTypeEnum(str, enum.Enum):
+    COVERED = "COVERED"
+    OPEN = "OPEN"
+    BASEMENT = "BASEMENT"
+
+
+class ReservationTypeEnum(str, enum.Enum):
+    TEMPORARY_HOLD = "TEMPORARY_HOLD"
+    CONFIRMED_BOOKING = "CONFIRMED_BOOKING"
+    ACTIVE_SESSION = "ACTIVE_SESSION"
+    MAINTENANCE_BLOCK = "MAINTENANCE_BLOCK"
+    OWNER_BLACKOUT = "OWNER_BLACKOUT"
+
+
+class ReservationStatusEnum(str, enum.Enum):
+    ACTIVE_HOLD = "ACTIVE_HOLD"
+    EXPIRED_HOLD = "EXPIRED_HOLD"
+    CONFIRMED = "CONFIRMED"
+    ACTIVE_SESSION = "ACTIVE_SESSION"
+    COMPLETED = "COMPLETED"
+    CANCELLED_BY_DRIVER = "CANCELLED_BY_DRIVER"
+    CANCELLED_BY_OWNER = "CANCELLED_BY_OWNER"
+    NO_SHOW = "NO_SHOW"
+    ARRIVAL_FAILED = "ARRIVAL_FAILED"
+    REPLACED = "REPLACED"
+    RELEASED_UNFULFILLABLE = "RELEASED_UNFULFILLABLE"
+    MAINTENANCE_BLOCK = "MAINTENANCE_BLOCK"
+    OWNER_BLACKOUT = "OWNER_BLACKOUT"
+
+
+class RefundStatusEnum(str, enum.Enum):
+    NONE = "NONE"
+    REFUND_ELIGIBLE = "REFUND_ELIGIBLE"
+    REFUND_REQUESTED = "REFUND_REQUESTED"
+    GATEWAY_ACCEPTED = "GATEWAY_ACCEPTED"
+    REFUND_PROCESSING = "REFUND_PROCESSING"
+    REFUND_SETTLED = "REFUND_SETTLED"
+    REFUND_FAILED = "REFUND_FAILED"
+
+
+class TokenTypeEnum(str, enum.Enum):
+    ENTRY = "ENTRY"
+    EXIT = "EXIT"
+
+
+class TokenStatusEnum(str, enum.Enum):
+    ISSUED = "ISSUED"
+    ACTIVE = "ACTIVE"
+    CONSUMED = "CONSUMED"
+    REVOKED = "REVOKED"
+    EXPIRED = "EXPIRED"
+
+
+class AccountTypeEnum(str, enum.Enum):
+    ASSET = "ASSET"
+    LIABILITY = "LIABILITY"
+    EQUITY = "EQUITY"
+    REVENUE = "REVENUE"
+    EXPENSE = "EXPENSE"
+
+
+class JournalStatusEnum(str, enum.Enum):
+    DRAFT = "DRAFT"
+    POSTED = "POSTED"
+    VOIDED = "VOIDED"
+
+
+class EntrySideEnum(str, enum.Enum):
+    DEBIT = "DEBIT"
+    CREDIT = "CREDIT"

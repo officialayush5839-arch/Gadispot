@@ -1,0 +1,1567 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Gadispot API",
+    "version": "2.3.0"
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "tags": [
+          "Root Health Probes"
+        ],
+        "summary": "Liveness Probe",
+        "description": "Returns 200 ALIVE as long as the application process is running. Never fails on external dependency downtime.",
+        "operationId": "liveness_probe_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthLiveResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "Root Health Probes"
+        ],
+        "summary": "Readiness Probe",
+        "description": "Checks live connectivity to PostgreSQL and Redis. Returns 200 READY or 503 UNAVAILABLE.",
+        "operationId": "readiness_probe_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "All critical dependencies are healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthReadyResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "One or more critical dependencies are down"
+          }
+        }
+      }
+    },
+    "/health/": {
+      "get": {
+        "tags": [
+          "Root Health Probes"
+        ],
+        "summary": "API Health Status",
+        "description": "Returns API service version, environment, and subsystem health status.",
+        "operationId": "api_health_health__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "tags": [
+          "Health & Diagnostics"
+        ],
+        "summary": "Liveness Probe",
+        "description": "Returns 200 ALIVE as long as the application process is running. Never fails on external dependency downtime.",
+        "operationId": "liveness_probe_api_v1_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthLiveResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "tags": [
+          "Health & Diagnostics"
+        ],
+        "summary": "Readiness Probe",
+        "description": "Checks live connectivity to PostgreSQL and Redis. Returns 200 READY or 503 UNAVAILABLE.",
+        "operationId": "readiness_probe_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "All critical dependencies are healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthReadyResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "One or more critical dependencies are down"
+          }
+        }
+      }
+    },
+    "/api/v1/health/": {
+      "get": {
+        "tags": [
+          "Health & Diagnostics"
+        ],
+        "summary": "API Health Status",
+        "description": "Returns API service version, environment, and subsystem health status.",
+        "operationId": "api_health_api_v1_health__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/session": {
+      "post": {
+        "tags": [
+          "Authentication & 2FA"
+        ],
+        "summary": "Exchange Firebase ID token for internal scoped JWT session",
+        "description": "Validate a verified Firebase Phone Auth ID token and issue internal access/refresh JWTs.",
+        "operationId": "create_session_api_v1_auth_session_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FirebaseSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Authentication & 2FA"
+        ],
+        "summary": "Refresh internal session access token",
+        "description": "Issue a fresh access token using a valid, non-expired internal refresh token.",
+        "operationId": "refresh_session_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "Authentication & 2FA"
+        ],
+        "summary": "Initialize RFC 6238 TOTP 2FA for operations personnel",
+        "description": "Generate high-entropy Base32 secret, provisioning URI, and QR code for Google Authenticator.",
+        "operationId": "setup_totp_2fa_api_v1_auth_2fa_setup_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetupResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/2fa/verify": {
+      "post": {
+        "tags": [
+          "Authentication & 2FA"
+        ],
+        "summary": "Verify an RFC 6238 6-digit TOTP code",
+        "description": "Verify an RFC 6238 TOTP code against the shared secret within a +/- 30s clock drift window.",
+        "operationId": "verify_totp_api_v1_auth_2fa_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpVerifyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/hold": {
+      "post": {
+        "tags": [
+          "Bookings & Holds"
+        ],
+        "summary": "Create an atomic 480-second checkout hold",
+        "description": "Create checkout hold. Enforces PostgreSQL GiST temporal exclusion and 480s lifespan.",
+        "operationId": "create_booking_hold_api_v1_bookings_hold_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bearer access token",
+              "title": "Authorization"
+            },
+            "description": "Bearer access token"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHoldRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoldResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/{reservation_id}": {
+      "get": {
+        "tags": [
+          "Bookings & Holds"
+        ],
+        "summary": "Get reservation details",
+        "description": "Retrieve reservation record.",
+        "operationId": "get_reservation_details_api_v1_bookings__reservation_id__get",
+        "parameters": [
+          {
+            "name": "reservation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Reservation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/{gateway}": {
+      "post": {
+        "tags": [
+          "Payment Webhooks"
+        ],
+        "summary": "Ingest payment gateway webhook with durable deduplication",
+        "description": "Ingest, verify, deduplicate, and process asynchronous payment gateway webhook events.",
+        "operationId": "handle_payment_webhook_api_v1_webhooks__gateway__post",
+        "parameters": [
+          {
+            "name": "gateway",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Handle Payment Webhook Api V1 Webhooks  Gateway  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/create-order": {
+      "post": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Create a payment intent order with selected gateway",
+        "description": "Create an order with the selected runtime gateway adapter and associate with reservation.",
+        "operationId": "create_payment_order_api_v1_payments_create_order_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateOrderResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/generate-upi-qr": {
+      "post": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Generate a dynamic NPCI-compliant UPI QR code",
+        "description": "Generate dynamic UPI payment URI and high-contrast base64 QR code image.",
+        "operationId": "generate_upi_qr_api_v1_payments_generate_upi_qr_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpiQrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpiQrResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/refund/request": {
+      "post": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Initiate a 6-stage refund for a reservation",
+        "description": "Transition reservation into REFUND_REQUESTED and dispatch to gateway adapter.",
+        "operationId": "request_refund_api_v1_payments_refund_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/refund/{reservation_id}/status": {
+      "get": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Check current 6-stage refund status for a reservation",
+        "description": "Retrieve current refund status and settlement metadata.",
+        "operationId": "get_refund_status_api_v1_payments_refund__reservation_id__status_get",
+        "parameters": [
+          {
+            "name": "reservation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Reservation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access/issue-tokens": {
+      "post": {
+        "tags": [
+          "Gate Access Passes"
+        ],
+        "summary": "Issue 128-bit CSPRNG ENTRY and EXIT access tokens for confirmed booking",
+        "description": "Generate separate entry and exit access passes for a confirmed reservation.",
+        "operationId": "issue_access_tokens_api_v1_access_issue_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueTokensRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueTokensResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access/validate-scan": {
+      "post": {
+        "tags": [
+          "Gate Access Passes"
+        ],
+        "summary": "Validate guard gate scan and burn token atomically",
+        "description": "Validate access pass, guard against replay attacks, and update session state.",
+        "operationId": "validate_gate_scan_api_v1_access_validate_scan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiHealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Overall service health (HEALTHY/DEGRADED)"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Application version"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "description": "Runtime environment"
+          },
+          "subsystems": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Subsystems",
+            "description": "Subsystem health statuses"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "ISO 8601 UTC timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "environment",
+          "subsystems"
+        ],
+        "title": "ApiHealthResponse",
+        "description": "Schema for API versioned health response."
+      },
+      "CreateHoldRequest": {
+        "properties": {
+          "parking_space_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Parking Space Id"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vehicle Id"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "parking_space_id",
+          "vehicle_id",
+          "start_time",
+          "end_time"
+        ],
+        "title": "CreateHoldRequest"
+      },
+      "CreateOrderRequest": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Target parking reservation ID"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount Paise",
+            "description": "Monetary amount in Indian Paise (e.g. 10000 = \u20b9100.00)"
+          },
+          "gateway": {
+            "type": "string",
+            "title": "Gateway",
+            "description": "Payment gateway: 'razorpay', 'cashfree', 'hyperswitch'",
+            "default": "razorpay"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "ISO 4217 3-letter currency code",
+            "default": "INR"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "amount_paise"
+        ],
+        "title": "CreateOrderRequest",
+        "description": "Request to create a payment order with an integrated gateway."
+      },
+      "CreateOrderResponse": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id",
+            "description": "Gateway-generated order identifier"
+          },
+          "gateway": {
+            "type": "string",
+            "title": "Gateway",
+            "description": "Name of the executing gateway adapter"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise",
+            "description": "Order amount in Paise"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Currency",
+            "default": "INR"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Order status ('created', 'pending')"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "gateway",
+          "amount_paise",
+          "status"
+        ],
+        "title": "CreateOrderResponse",
+        "description": "Payment order created by the gateway adapter."
+      },
+      "FirebaseSessionRequest": {
+        "properties": {
+          "id_token": {
+            "type": "string",
+            "minLength": 10,
+            "title": "Id Token",
+            "description": "Verified Firebase Phone Auth ID token"
+          },
+          "fcm_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fcm Token",
+            "description": "Optional FCM device push token for notifications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_token"
+        ],
+        "title": "FirebaseSessionRequest",
+        "description": "Payload to exchange a verified Firebase ID token for internal JWT tokens."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthLiveResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Liveness state",
+            "default": "ALIVE"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "ISO 8601 UTC timestamp"
+          }
+        },
+        "type": "object",
+        "title": "HealthLiveResponse",
+        "description": "Schema for liveness probe response."
+      },
+      "HealthReadyChecks": {
+        "properties": {
+          "database": {
+            "type": "string",
+            "title": "Database",
+            "description": "Database connectivity status (UP/DOWN)"
+          },
+          "redis": {
+            "type": "string",
+            "title": "Redis",
+            "description": "Redis connectivity status (UP/DOWN)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "database",
+          "redis"
+        ],
+        "title": "HealthReadyChecks",
+        "description": "Component readiness status."
+      },
+      "HealthReadyResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Readiness state (READY/UNAVAILABLE)"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/HealthReadyChecks",
+            "description": "Individual dependency check states"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "ISO 8601 UTC timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "checks"
+        ],
+        "title": "HealthReadyResponse",
+        "description": "Schema for readiness probe response."
+      },
+      "HoldResponse": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id"
+          },
+          "booking_reference": {
+            "type": "string",
+            "title": "Booking Reference"
+          },
+          "parking_space_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Parking Space Id"
+          },
+          "driver_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Driver Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "hold_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Hold Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "booking_reference",
+          "parking_space_id",
+          "driver_id",
+          "status",
+          "hold_expires_at"
+        ],
+        "title": "HoldResponse"
+      },
+      "IssueTokensRequest": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id"
+        ],
+        "title": "IssueTokensRequest"
+      },
+      "IssueTokensResponse": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id"
+          },
+          "entry_token": {
+            "type": "string",
+            "title": "Entry Token"
+          },
+          "exit_token": {
+            "type": "string",
+            "title": "Exit Token"
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Valid From"
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Valid Until"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "entry_token",
+          "exit_token",
+          "valid_from",
+          "valid_until"
+        ],
+        "title": "IssueTokensResponse"
+      },
+      "RefreshTokenRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 10,
+            "title": "Refresh Token",
+            "description": "Valid internal refresh token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshTokenRequest",
+        "description": "Payload to refresh an existing access token using a refresh token."
+      },
+      "RefundRequest": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Reservation ID to refund"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Cancellation or failure reason"
+          },
+          "amount_paise": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Paise",
+            "description": "Optional partial refund amount in Paise (defaults to full)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "reason"
+        ],
+        "title": "RefundRequest",
+        "description": "Request to initiate a 6-stage refund for a cancelled or unfulfillable reservation."
+      },
+      "RefundResponse": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Reservation ID"
+          },
+          "refund_status": {
+            "type": "string",
+            "title": "Refund Status",
+            "description": "Current status in the 6-stage refund state machine"
+          },
+          "refund_gateway_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Gateway Id",
+            "description": "Gateway refund ID if dispatched"
+          },
+          "refund_arn_utr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Arn Utr",
+            "description": "Bank ARN/UTR settlement reference if available"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Summary status message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "refund_status",
+          "message"
+        ],
+        "title": "RefundResponse",
+        "description": "Current refund state and gateway tracking identifiers."
+      },
+      "ReservationDetailResponse": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id"
+          },
+          "booking_reference": {
+            "type": "string",
+            "title": "Booking Reference"
+          },
+          "parking_space_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Parking Space Id"
+          },
+          "driver_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Driver Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "payment_order_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Order Id"
+          },
+          "hold_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "booking_reference",
+          "parking_space_id",
+          "driver_id",
+          "status",
+          "created_at"
+        ],
+        "title": "ReservationDetailResponse"
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "Scoped JWT access token (60m validity)"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "Internal refresh token (30d validity)"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "description": "Token authentication scheme",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Access token expiry in seconds",
+            "default": 3600
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user"
+        ],
+        "title": "TokenResponse",
+        "description": "Session token pair returned upon successful authentication."
+      },
+      "TotpSetupResponse": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret",
+            "description": "Base32 TOTP shared secret"
+          },
+          "provisioning_uri": {
+            "type": "string",
+            "title": "Provisioning Uri",
+            "description": "Standard otpauth:// URI for authenticator apps"
+          },
+          "qr_code_base64": {
+            "type": "string",
+            "title": "Qr Code Base64",
+            "description": "Data URL (base64 PNG) of the authenticator QR code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "provisioning_uri",
+          "qr_code_base64"
+        ],
+        "title": "TotpSetupResponse",
+        "description": "Provisioning details for RFC 6238 TOTP 2FA."
+      },
+      "TotpVerifyRequest": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "minLength": 16,
+            "title": "Secret",
+            "description": "Base32 TOTP secret"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "title": "Code",
+            "description": "6-digit TOTP verification code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "code"
+        ],
+        "title": "TotpVerifyRequest",
+        "description": "Payload to verify an RFC 6238 6-digit TOTP code."
+      },
+      "TotpVerifyResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid",
+            "description": "Whether the TOTP code was valid within drift window"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid",
+          "message"
+        ],
+        "title": "TotpVerifyResponse",
+        "description": "Result of TOTP code verification."
+      },
+      "UpiQrRequest": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Reservation ID associated with this payment"
+          },
+          "amount_rupees": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount Rupees",
+            "description": "Amount in INR (e.g. 91.80)"
+          },
+          "payee_vpa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee Vpa",
+            "description": "Optional custom VPA (defaults to system setting)"
+          },
+          "payee_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee Name",
+            "description": "Optional custom Payee Name"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "Payment note/description (max 50 chars)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "amount_rupees"
+        ],
+        "title": "UpiQrRequest",
+        "description": "Request to generate a dynamic UPI QR code."
+      },
+      "UpiQrResponse": {
+        "properties": {
+          "upi_uri": {
+            "type": "string",
+            "title": "Upi Uri",
+            "description": "Canonical NPCI compliant upi://pay URI"
+          },
+          "qr_code_base64": {
+            "type": "string",
+            "title": "Qr Code Base64",
+            "description": "Data URL (base64 PNG) of the generated QR code"
+          },
+          "transaction_ref": {
+            "type": "string",
+            "title": "Transaction Ref",
+            "description": "Deterministic transaction reference identifier"
+          },
+          "amount_rupees": {
+            "type": "number",
+            "title": "Amount Rupees",
+            "description": "Payment amount in INR"
+          }
+        },
+        "type": "object",
+        "required": [
+          "upi_uri",
+          "qr_code_base64",
+          "transaction_ref",
+          "amount_rupees"
+        ],
+        "title": "UpiQrResponse",
+        "description": "Dynamic NPCI UPI URI and base64 PNG QR code representation."
+      },
+      "UserSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "phone_number": {
+            "type": "string",
+            "title": "Phone Number"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "phone_number",
+          "full_name",
+          "roles",
+          "is_active"
+        ],
+        "title": "UserSummary",
+        "description": "Summary of user profile and role assignments."
+      },
+      "ValidateScanRequest": {
+        "properties": {
+          "opaque_token": {
+            "type": "string",
+            "title": "Opaque Token"
+          },
+          "guard_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guard Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opaque_token"
+        ],
+        "title": "ValidateScanRequest"
+      },
+      "ValidateScanResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type"
+          },
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id"
+          },
+          "consumed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Consumed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "token_type",
+          "reservation_id",
+          "consumed_at"
+        ],
+        "title": "ValidateScanResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

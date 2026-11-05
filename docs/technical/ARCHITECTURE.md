@@ -109,18 +109,34 @@ classDiagram
         +disburse_payout(payout_req: PayoutRequest) PayoutResult
     }
 
-    class RazorpayXDirectPayoutAdapter {
-        +validate_bank_account()
-        +disburse_payout()
+    class PaymentGatewayPort {
+        <<interface>>
+        +create_order(amount_paise, receipt, currency, notes)
+        +verify_webhook_signature(raw_body, headers)
+        +process_refund(payment_id, amount_paise, reason)
     }
 
-    class RazorpayRouteAdapter {
-        +validate_bank_account()
-        +disburse_payout()
+    class RazorpayAdapter {
+        +create_order()
+        +verify_webhook_signature()
+        +process_refund()
     }
 
-    AbstractPayoutEngine <|-- RazorpayXDirectPayoutAdapter
-    AbstractPayoutEngine <|-- RazorpayRouteAdapter
+    class CashfreeAdapter {
+        +create_order()
+        +verify_webhook_signature()
+        +process_refund()
+    }
+
+    class HyperswitchAdapter {
+        +create_order()
+        +verify_webhook_signature()
+        +process_refund()
+    }
+
+    PaymentGatewayPort <|-- RazorpayAdapter
+    PaymentGatewayPort <|-- CashfreeAdapter
+    PaymentGatewayPort <|-- HyperswitchAdapter
 ```
 
 ---

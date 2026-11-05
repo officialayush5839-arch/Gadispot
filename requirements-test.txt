@@ -1,3 +1,7 @@
+# Gadispot Test & Quality Dependencies
+-r backend/requirements.txt
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
-asyncpg>=0.29.0
+respx>=0.21.0
+ruff>=0.8.0
+mypy>=1.13.0
