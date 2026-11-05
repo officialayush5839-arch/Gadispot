@@ -75,21 +75,8 @@ class _QrScannerViewState extends State<QrScannerView> {
         title: const Text('Gate Pass Scanner'),
         actions: [
           IconButton(
-            icon: ValueListenableBuilder<TorchState>(
-              valueListenable: _scannerController.torchState,
-              builder: (context, state, child) {
-                switch (state) {
-                  case TorchState.off:
-                    return const Icon(Icons.flash_off);
-                  case TorchState.on:
-                    return const Icon(Icons.flash_on, color: Colors.yellow);
-                  case TorchState.auto:
-                    return const Icon(Icons.flash_auto);
-                  case TorchState.unavailable:
-                    return const Icon(Icons.flash_off, color: Colors.grey);
-                }
-              },
-            ),
+            icon: const Icon(Icons.flash_on),
+            tooltip: 'Toggle Flash',
             onPressed: () => _scannerController.toggleTorch(),
           ),
           IconButton(

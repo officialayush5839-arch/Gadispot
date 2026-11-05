@@ -1,6 +1,7 @@
 # Gadispot Test & Quality Dependencies
 -r backend/requirements.txt
 greenlet>=3.1.0
+geoalchemy2>=0.17.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 respx>=0.21.0

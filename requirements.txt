@@ -11,6 +11,7 @@ uvicorn[standard]>=0.32.0
 sqlalchemy>=2.0.36
 asyncpg>=0.30.0
 greenlet>=3.1.0
+geoalchemy2>=0.17.0
 alembic>=1.14.0
 
 # Caching & Communication

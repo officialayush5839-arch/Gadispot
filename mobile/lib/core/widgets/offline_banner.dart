@@ -7,12 +7,14 @@ class OfflineBanner extends StatelessWidget {
   final bool isOffline;
   final String? customMessage;
   final VoidCallback? onRetry;
+  final int? pendingSyncCount;
 
   const OfflineBanner({
     super.key,
     required this.isOffline,
     this.customMessage,
     this.onRetry,
+    this.pendingSyncCount,
   });
 
   @override
@@ -50,7 +52,9 @@ class OfflineBanner extends StatelessWidget {
           Expanded(
             child: Text(
               customMessage ??
-                  'Subterranean Dead Zone — Showing cached pass. Valid for gate admission.',
+                  (pendingSyncCount != null && pendingSyncCount! > 0
+                      ? 'OFFLINE MODE — $pendingSyncCount pending admissions stored.'
+                      : 'Subterranean Dead Zone — Showing cached pass. Valid for gate admission.'),
               style: const TextStyle(
                 color: AppTheme.offlineBannerText,
                 fontSize: 12,

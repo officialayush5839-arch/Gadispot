@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/routing/app_router.dart';
 import 'search_view.dart';
 import 'active_reservation_view.dart';
 import 'bookings_view.dart';
