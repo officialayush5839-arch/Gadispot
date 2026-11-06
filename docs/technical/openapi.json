@@ -442,12 +442,344 @@
         }
       }
     },
+    "/api/v1/payments/providers": {
+      "get": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "List available payment gateways and active execution mode",
+        "description": "Retrieve supported payment gateways and system operation flags.",
+        "operationId": "list_payment_providers_api_v1_payments_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments": {
+      "post": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Initiate payment checkout for an active reservation hold",
+        "description": "Create a verified payment intent, enforce pricing quote, and associate with reservation.",
+        "operationId": "initiate_payment_api_v1_payments_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bearer access token",
+              "title": "Authorization"
+            },
+            "description": "Bearer access token"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiatePaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiatePaymentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{payment_id}/demo/complete": {
+      "post": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Execute simulated payment outcome (Strictly disabled in production)",
+        "description": "Simulate a deterministic payment outcome for hackathon evaluation and local testing.",
+        "operationId": "complete_demo_payment_api_v1_payments__payment_id__demo_complete_post",
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Payment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bearer access token",
+              "title": "Authorization"
+            },
+            "description": "Bearer access token"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoCompleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{payment_id}": {
+      "get": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Get payment details and status",
+        "description": "Inspect payment state, simulation flags, and gateway identifiers.",
+        "operationId": "get_payment_details_api_v1_payments__payment_id__get",
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Payment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bearer access token",
+              "title": "Authorization"
+            },
+            "description": "Bearer access token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{payment_id}/cancel": {
+      "post": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Cancel a pending payment intent",
+        "description": "Explicitly cancel a pending payment before checkout completion.",
+        "operationId": "cancel_payment_api_v1_payments__payment_id__cancel_post",
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Payment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bearer access token",
+              "title": "Authorization"
+            },
+            "description": "Bearer access token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/payouts/simulate": {
+      "post": {
+        "tags": [
+          "Payment Management & UPI QR"
+        ],
+        "summary": "Trigger simulated host earnings payout batch",
+        "description": "Disburse accumulated host liability balances (Account 2010) in demo mode.",
+        "operationId": "simulate_owner_payout_api_v1_payments_payouts_simulate_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bearer access token",
+              "title": "Authorization"
+            },
+            "description": "Bearer access token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutBatchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payments/create-order": {
       "post": {
         "tags": [
           "Payment Management & UPI QR"
         ],
-        "summary": "Create a payment intent order with selected gateway",
+        "summary": "Create a payment intent order with selected gateway (Legacy compatibility)",
         "description": "Create an order with the selected runtime gateway adapter and associate with reservation.",
         "operationId": "create_payment_order_api_v1_payments_create_order_post",
         "requestBody": {
@@ -800,8 +1132,8 @@
           "gateway": {
             "type": "string",
             "title": "Gateway",
-            "description": "Payment gateway: 'razorpay', 'cashfree', 'hyperswitch'",
-            "default": "razorpay"
+            "description": "Payment gateway: 'demo', 'razorpay', 'cashfree', 'hyperswitch', 'youpi'",
+            "default": "demo"
           },
           "currency": {
             "type": "string",
@@ -856,6 +1188,96 @@
         ],
         "title": "CreateOrderResponse",
         "description": "Payment order created by the gateway adapter."
+      },
+      "DemoCompleteRequest": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "title": "Outcome",
+            "description": "Simulation outcome: 'SUCCESS', 'FAILURE', 'CANCEL', 'TIMEOUT'",
+            "default": "SUCCESS"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Optional diagnostic or cancellation reason"
+          }
+        },
+        "type": "object",
+        "title": "DemoCompleteRequest",
+        "description": "Request to simulate a payment outcome in demo mode."
+      },
+      "DemoCompleteResponse": {
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Payment Id",
+            "description": "Payment ID"
+          },
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Reservation ID"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Updated payment status"
+          },
+          "is_simulated": {
+            "type": "boolean",
+            "title": "Is Simulated",
+            "description": "Confirms simulated transaction"
+          },
+          "provider_payment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Payment Id",
+            "description": "Simulated UTR/payment ID"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason",
+            "description": "Reason if simulation failed or timed out"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable result summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_id",
+          "reservation_id",
+          "status",
+          "is_simulated",
+          "message"
+        ],
+        "title": "DemoCompleteResponse",
+        "description": "Result of the simulated payment completion."
       },
       "FirebaseSessionRequest": {
         "properties": {
@@ -1004,6 +1426,118 @@
         ],
         "title": "HoldResponse"
       },
+      "InitiatePaymentRequest": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Reservation ID under active hold"
+          },
+          "gateway": {
+            "type": "string",
+            "title": "Gateway",
+            "description": "Payment gateway: 'demo', 'razorpay', 'cashfree', 'hyperswitch'",
+            "default": "demo"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key",
+            "description": "Optional client-generated idempotency key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id"
+        ],
+        "title": "InitiatePaymentRequest",
+        "description": "Request to initiate payment checkout for a reservation hold."
+      },
+      "InitiatePaymentResponse": {
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Payment Id",
+            "description": "Unique internal payment transaction ID"
+          },
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Target reservation ID"
+          },
+          "order_id": {
+            "type": "string",
+            "title": "Order Id",
+            "description": "Provider-specific order or intent ID"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise",
+            "description": "Total payment amount in Paise"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Currency code",
+            "default": "INR"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Current payment status"
+          },
+          "gateway": {
+            "type": "string",
+            "title": "Gateway",
+            "description": "Selected gateway provider"
+          },
+          "is_simulated": {
+            "type": "boolean",
+            "title": "Is Simulated",
+            "description": "Whether this is a simulated demo transaction"
+          },
+          "is_experimental": {
+            "type": "boolean",
+            "title": "Is Experimental",
+            "description": "Whether this is an experimental gateway",
+            "default": false
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote",
+            "description": "Detailed financial fee breakdown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_id",
+          "reservation_id",
+          "order_id",
+          "amount_paise",
+          "status",
+          "gateway",
+          "is_simulated"
+        ],
+        "title": "InitiatePaymentResponse",
+        "description": "Payment intent response with pricing quote and provider order ID."
+      },
       "IssueTokensRequest": {
         "properties": {
           "reservation_id": {
@@ -1053,6 +1587,245 @@
           "valid_until"
         ],
         "title": "IssueTokensResponse"
+      },
+      "PaymentDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Payment ID"
+          },
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reservation Id",
+            "description": "Associated reservation ID"
+          },
+          "driver_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Driver Id",
+            "description": "Driver user ID"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise",
+            "description": "Amount in paise"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Currency",
+            "default": "INR"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "Payment provider name"
+          },
+          "provider_order_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Order Id",
+            "description": "Provider order ID"
+          },
+          "provider_payment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Payment Id",
+            "description": "Provider payment ID"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Payment lifecycle status"
+          },
+          "is_simulated": {
+            "type": "boolean",
+            "title": "Is Simulated",
+            "description": "Simulated flag"
+          },
+          "is_experimental": {
+            "type": "boolean",
+            "title": "Is Experimental",
+            "description": "Experimental flag",
+            "default": false
+          },
+          "experimental_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experimental Status",
+            "description": "Observer-derived status"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key",
+            "description": "Idempotency key"
+          },
+          "simulation_scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Simulation Scenario",
+            "description": "Triggered simulation scenario"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason",
+            "description": "Failure reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "Last update timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reservation_id",
+          "driver_id",
+          "amount_paise",
+          "provider",
+          "status",
+          "is_simulated",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PaymentDetailResponse",
+        "description": "Comprehensive payment record inspection."
+      },
+      "PayoutBatchResponse": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id",
+            "description": "Batch identifier"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise",
+            "description": "Disbursed amount in paise"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Currency",
+            "default": "INR"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Batch status ('SIMULATED_SETTLED')"
+          },
+          "settled_at": {
+            "type": "string",
+            "title": "Settled At",
+            "description": "Settlement ISO timestamp"
+          },
+          "utr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Utr",
+            "description": "Disbursement UTR reference"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status summary message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "amount_paise",
+          "status",
+          "settled_at",
+          "message"
+        ],
+        "title": "PayoutBatchResponse",
+        "description": "Simulated host earnings disbursement batch."
+      },
+      "ProviderListResponse": {
+        "properties": {
+          "active_mode": {
+            "type": "string",
+            "title": "Active Mode",
+            "description": "Active payment mode ('demo', 'live', 'hybrid')"
+          },
+          "demo_enabled": {
+            "type": "boolean",
+            "title": "Demo Enabled",
+            "description": "Whether demo simulation is permitted"
+          },
+          "supported_providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supported Providers",
+            "description": "List of available gateway identifiers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active_mode",
+          "demo_enabled",
+          "supported_providers"
+        ],
+        "title": "ProviderListResponse",
+        "description": "List of active payment providers."
       },
       "RefreshTokenRequest": {
         "properties": {

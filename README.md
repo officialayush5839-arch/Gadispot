@@ -222,7 +222,7 @@ docker compose exec backend alembic upgrade head
 Gadispot maintains a strict test hierarchy covering database constraints, API endpoints, mobile clean architecture, specification harmonization, and infrastructure validation:
 
 ```bash
-# 1. Run Backend Database & API Integration Pytest Suite (34/34 passing)
+# 1. Run Backend Database & API Integration Pytest Suite (83/83 passing)
 pytest tests/ -v
 
 # 2. Run Document Harmonization & Markdown Link Integrity Suite
