@@ -104,6 +104,42 @@ def check_hardened_triggers():
 
     return violations
 
+def check_frozen_specification_files():
+    """
+    Validates mathematical immutability of the 6 canonical foundation governance files.
+    Fails if any file is missing or has been altered from its approved freeze baseline.
+    """
+    import hashlib
+
+    FROZEN_SPECS = {
+        'PRD.md': 'fc71555b76301d7fb66bf6ec0582924b2c3b12c90dc0d7cc45a00e6bc338a25e',
+        'goal.md': '4e3ff39382a1c5e87a273b0e3a7b2c183afa457ecb9e6e72a25b4e51a77140ca',
+        'rules.md': '7997d0cda7e38024470e01aa19645a6f827af9a5a63c114cee3db21f47e4b446',
+        'architecture.md': '3fcaa833254a666d547558f7d154f30f1776bd5a1955134a515000f7f21d3144',
+        'phases.md': '39124e9f65d1cbfcecaa017a2bc44b15a96b49c1e21c6a3f3eb6a722cae2906b',
+        'task.md': 'c240878f5000a314466f7a5048ef1e5f6b349d688358dde63692efa14d71b637',
+    }
+
+    violations = []
+    for filename, expected_hash in FROZEN_SPECS.items():
+        if not os.path.exists(filename):
+            violations.append(f"Missing frozen governance file: {filename}")
+            continue
+
+        with open(filename, 'rb') as fp:
+            raw_content = fp.read()
+
+        # Normalize line endings to LF so check is platform-invariant (Windows CRLF vs Linux LF)
+        normalized_content = raw_content.replace(b'\r\n', b'\n')
+        actual_hash = hashlib.sha256(normalized_content).hexdigest()
+
+        if actual_hash != expected_hash:
+            violations.append(
+                f"Frozen file modified: {filename} (expected SHA256 {expected_hash}, got {actual_hash})"
+            )
+
+    return violations
+
 def main():
     print("=" * 70)
     print("GADISPOT PRD V2.3.2 SPECIFICATION & DOCUMENT HARMONIZATION SUITE")
@@ -112,7 +148,7 @@ def main():
     all_passed = True
 
     # 1. Banned patterns
-    print("\n[1/3] Verifying specification documentation harmonization & banned pattern compliance...")
+    print("\n[1/4] Verifying specification documentation harmonization & banned pattern compliance...")
     banned_violations = check_banned_patterns()
     if banned_violations:
         print(f"FAILED: Found {len(banned_violations)} banned pattern violations:")
@@ -123,7 +159,7 @@ def main():
         print("PASSED: Zero obsolete patterns or uncanonical refund enums found.")
 
     # 2. Link integrity
-    print("\n[2/3] Verifying relative Markdown link integrity...")
+    print("\n[2/4] Verifying relative Markdown link integrity...")
     link_violations = check_link_integrity()
     if link_violations:
         print(f"FAILED: Found {len(link_violations)} broken relative links:")
@@ -134,7 +170,7 @@ def main():
         print("PASSED: All Markdown relative links resolve to existing files.")
 
     # 3. Hardened trigger specs
-    print("\n[3/3] Verifying documentation references to hardened trigger specifications...")
+    print("\n[3/4] Verifying documentation references to hardened trigger specifications...")
     trigger_violations = check_hardened_triggers()
     if trigger_violations:
         print(f"FAILED: Found {len(trigger_violations)} trigger specification defects:")
@@ -144,6 +180,18 @@ def main():
     else:
         print("PASSED: DDL documentation contains required trigger specifications.")
         print("        (Note: Document harmonization check only; real execution verified in pytest database test suite)")
+
+    # 4. Immutability check for the 6 frozen foundation governance files
+    print("\n[4/4] Verifying mathematical immutability of the 6 frozen governance files...")
+    freeze_violations = check_frozen_specification_files()
+    if freeze_violations:
+        print(f"FAILED: Detected unauthorized modification to frozen governance files:")
+        for v in freeze_violations:
+            print(f"  - {v}")
+        all_passed = False
+    else:
+        print("PASSED: All 6 frozen governance files match their immutable SHA-256 baseline:")
+        print("        - PRD.md, goal.md, rules.md, architecture.md, phases.md, task.md")
 
     print("\n" + "=" * 70)
     if all_passed:
