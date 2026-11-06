@@ -85,6 +85,8 @@ async def test_enum_types_registered(db_session):
         "account_type_enum",
         "journal_status_enum",
         "entry_side_enum",
+        "payment_status_enum",
+        "payment_provider_enum",
     }
 
     result = await db_session.execute(

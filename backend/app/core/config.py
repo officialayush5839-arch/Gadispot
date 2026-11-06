@@ -124,13 +124,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_payment_safety(self) -> "Settings":
-        """Strictly fail closed if demo mode is enabled in production."""
+        """Strictly fail closed if demo mode or debug mode is enabled in production."""
         is_prod = self.ENVIRONMENT.lower() == "production"
         if is_prod and (self.PAYMENT_MODE.lower() == "demo" or self.DEMO_PAYMENTS_ENABLED):
             raise ValueError(
                 "CRITICAL SECURITY VIOLATION: PAYMENT_MODE=demo and DEMO_PAYMENTS_ENABLED=True "
                 "are strictly prohibited in production environments."
             )
+        if is_prod and self.DEBUG:
+            raise ValueError("CRITICAL SECURITY VIOLATION: DEBUG mode cannot be enabled in production environments.")
         return self
 
     @property

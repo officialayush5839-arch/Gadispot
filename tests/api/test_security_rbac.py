@@ -80,6 +80,16 @@ async def test_sliding_window_rate_limiter_logic():
     assert count == 4
     assert retry_after >= 0
 
+    # Simulate Redis connection drop / failure: gracefully fail open
+    import redis.asyncio as aioredis
+    mock_pipeline.execute.side_effect = aioredis.ConnectionError("Redis connection dropped")
+    is_limited, count, retry_after = await limiter.is_rate_limited(
+        "user_123", mock_redis
+    )
+    assert is_limited is False
+    assert count == 0
+    assert retry_after == 0
+
 
 @pytest.mark.asyncio
 async def test_audit_event_service_immutability(db_session):

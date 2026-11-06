@@ -69,8 +69,22 @@ def test_production_demo_mode_safety_guard():
         )
 
 
+def test_production_debug_mode_safety_guard():
+    """Verify that enabling debug mode in production raises a strict ValidationError."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Settings(
+            ENVIRONMENT="production",
+            DEBUG=True,
+            PAYMENT_MODE="razorpay",
+            DEMO_PAYMENTS_ENABLED=False,
+        )
+
+
 def test_get_settings_cached_singleton():
     """Verify get_settings returns identical cached instance."""
     s1 = get_settings()
     s2 = get_settings()
     assert s1 is s2
+

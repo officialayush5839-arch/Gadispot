@@ -28,11 +28,11 @@ At the beginning of the engineering audit, the repository possessed complete, ha
 ### Work Completed
 1. **Repository & Governance:** Verified git cleanliness, ignore rules, and eliminated all hardcoded machine paths; harmonized strategic roadmap (`phases.md` Phase 00–14) with tactical sprint milestones (M0–M10).
 2. **FastAPI Modular Monolith:** Verified application factory `create_app()`, async lifespan management for PostgreSQL and Redis, RFC 7807 Problem Details exception handlers, request correlation IDs, and OpenAPI 3.1 documentation generation (25 total endpoints).
-3. **PostgreSQL 16 & Alembic:** Verified 3 Alembic migrations (`001_initial_schema.py`, `002_audit_events.py`, `003_demo_payments.py`) establishing 16 tables, 14 domain enums, PostGIS spatial extension, `btree_gist` temporal exclusion constraint `prevent_overlapping_active_reservations`, and Zero Child Lock plpgsql ledger triggers.
+3. **PostgreSQL 16 & Alembic:** Verified 3 Alembic migrations (`001_initial_schema.py`, `002_audit_events.py`, `003_demo_payments.py`) establishing 17 tables, 16 registered database enums (14 core domain + 2 payment enums), PostGIS spatial extension, `btree_gist` temporal exclusion constraint `prevent_overlapping_active_reservations`, and Zero Child Lock plpgsql ledger triggers.
 4. **Flutter Mobile Foundation:** Verified Clean Architecture layers (`data`, `domain`, `presentation`), BLoC state management, dynamic role-based navigation shells (`DriverShell`, `OwnerShell`, `GuardShell`, `OpsShell`), Dio API networking with auth interceptors, and SecureStorageService. Resolved package import paths to `package:gadispot_mobile/...`.
 5. **Docker Local Infrastructure:** Multi-stage `backend/Dockerfile` with non-root user `gadispot (1000)`; `docker-compose.yml` specifying `postgres` (PostGIS 16-3.4), `redis` (7-alpine), and `backend` (FastAPI) with health checks; one-command dev scripts (`dev_up.*`, `dev_down.*`).
-6. **Automated Testing Suite:** 83/83 pytest tests executing 100% green in <35s with zero socket exhaustion, zero deadlocks, and zero test-order dependencies; 37 Flutter widget/unit tests passing 100% green.
-7. **CI/CD Quality Gates:** Remote GitHub Actions pipeline (`spec-validation.yml`) executing 4 jobs 100% green on run `42180969205`.
+6. **Automated Testing Suite:** 84/84 pytest tests executing 100% green in <42s with zero socket exhaustion, zero deadlocks, and zero test-order dependencies; 37 Flutter widget/unit tests passing 100% green.
+7. **CI/CD Quality Gates:** Remote GitHub Actions pipeline (`spec-validation.yml`) executing 4 jobs 100% green on run `42183290733`.
 
 ### Final Readiness Status
 **PHASE 01 COMPLETE** — All 10 mandatory acceptance gates passed with verifiable empirical evidence. The repository is stable, reproducible, and certified ready for Phase 02 (Authentication, Identity & Scoped RBAC).
@@ -54,6 +54,7 @@ Zero internal technical blockers remain for development. Live commercial pilot l
 | **Git Repository** | `https://github.com/officialayush5839-arch/Gadispot` |
 | **Current Branch** | `main` |
 | **Initial Commit Hash** | `20448aa` (`docs(phase-00): finalize Phase 00 completion report and governance reconciliation`) |
+| **Final Phase 01 Commit Hash** | `613d806` (`feat(phase-01): finalize Phase 01 engineering foundation and verification reports`) |
 | **Working Tree Status** | Clean, synchronized |
 | **Operating System** | Windows 11 (Host) / Ubuntu 24.04 (GitHub Actions CI Runner) |
 | **Python Runtime** | Python 3.14.6 (Local host) / Python 3.11 (CI Runner) |
@@ -71,11 +72,11 @@ Zero internal technical blockers remain for development. Live commercial pilot l
 |---|---|---|---|:---:|
 | **WS-01: Repository Baseline & Structure** | Harmonized Phase 00 baseline; untracked risk of local machine paths | Audited full tree; verified ignore rules; confirmed zero tracked credentials or absolute host paths; verified canonical setup in `README.md`. | `git status -s`, `python scripts/validate_spec.py` | **COMPLETE** |
 | **WS-02: Backend Foundation Hardening** | Modular monolith scaffolded; need lifespan, config, error handler validation | Verified FastAPI factory, async lifespan managing DB/Redis pools, RFC 7807 Problem Details exception handlers, correlation ID middleware, Ruff lint/format. | `python -m ruff check backend/`, `pytest tests/api/test_health.py` | **COMPLETE** |
-| **WS-03: PostgreSQL, PostGIS & Alembic** | Alembic migrations present; GiST concurrency and triggers need empirical proof | Verified 3 migrations at head `003_demo_payments`; validated 16 canonical tables, 14 enums, `btree_gist` exclusion constraint, Zero Child Lock triggers under 50 concurrent workers. | `alembic current`, `pytest tests/database/` (15/15 passed) | **COMPLETE** |
-| **WS-04: Flutter Mobile Foundation** | Scaffolding present; import divergence previously caused CI failure | Confirmed package name `gadispot_mobile` in `pubspec.yaml`; verified Clean Architecture layers, BLoC v8.1, dynamic role shells, theme tokens, and normalized imports. | `validate_mobile_spec.py`, GitHub Actions CI `42180969205` (37 tests passed) | **COMPLETE** |
+| **WS-03: PostgreSQL, PostGIS & Alembic** | Alembic migrations present; GiST concurrency and triggers need empirical proof | Verified 3 migrations at head `003_demo_payments`; validated 17 canonical tables, 16 enums, `btree_gist` exclusion constraint, Zero Child Lock triggers under 50 concurrent workers. | `alembic current`, `pytest tests/database/` (15/15 passed) | **COMPLETE** |
+| **WS-04: Flutter Mobile Foundation** | Scaffolding present; import divergence previously caused CI failure | Confirmed package name `gadispot_mobile` in `pubspec.yaml`; verified Clean Architecture layers, BLoC v8.1, dynamic role shells, theme tokens, and normalized imports. | `validate_mobile_spec.py`, GitHub Actions CI `42183290733` (37 tests passed) | **COMPLETE** |
 | **WS-05: Docker & Local Infrastructure** | Dockerfile and Compose defined; need multi-container verification | Verified multi-stage Dockerfile (non-root `gadispot 1000`), Compose service topology (`postgres`, `redis`, `backend`), healthcheck probes, and one-command dev scripts. | `python scripts/validate_docker_spec.py` (100% green) | **COMPLETE** |
-| **WS-06: Automated Testing & Test Isolation** | 83 collected tests; previous audit flagged 401 vs 409 and teardown deadlocks | Verified session-scoped connection pooling, eliminated teardown deadlocks, verified e2e booking lifecycle test passes deterministically with HTTP 409; 83/83 passed in <35s. | `pytest tests/ -v` (consecutive runs: 83 passed) | **COMPLETE** |
-| **WS-07: CI/CD & Automated Quality Gates** | GitHub Actions run `42175358334` failed in `mobile-quality` | Verified fix commit `0166288` resolved mobile imports; subsequent workflow run `42180969205` executed all 4 jobs 100% green in 57s. | `gh run view 42180969205` | **COMPLETE** |
+| **WS-06: Automated Testing & Test Isolation** | 83 collected tests; previous audit flagged 401 vs 409 and teardown deadlocks | Verified session-scoped connection pooling, eliminated teardown deadlocks, verified e2e booking lifecycle test passes deterministically with HTTP 409; 84/84 passed in <42s. | `pytest tests/ -v` (consecutive runs: 84 passed) | **COMPLETE** |
+| **WS-07: CI/CD & Automated Quality Gates** | GitHub Actions run `42175358334` failed in `mobile-quality` | Verified fix commit `0166288` resolved mobile imports; subsequent workflow run `42183290733` executed all 4 jobs 100% green in 1m13s. | `gh run view 42183290733` | **COMPLETE** |
 | **WS-08: Security & Configuration** | Basic `.env.example` present; need fail-closed production demo validation | Verified Pydantic Settings fail-closed validator (strictly blocks demo payments in production), PII masking in `SensitiveDataFilter`, and 128-bit CSPRNG access tokens. | `pytest tests/api/test_config.py`, `tests/security/` | **COMPLETE** |
 | **WS-09: Documentation & Traceability** | Dual phase numbering caused tracker confusion | Preserved `phases.md` as canonical strategic roadmap; distinguished sprint work packages (M0–M10); created Phase 01 reports and validation matrix. | `PHASE_01_IMPLEMENTATION_REPORT.md`, `PHASE_01_VALIDATION_MATRIX.md` | **COMPLETE** |
 
@@ -88,8 +89,11 @@ Zero internal technical blockers remain for development. Live commercial pilot l
 | `DEF-001` | High | Test harness schema bypassed Alembic; missing 9 tables, PostGIS, and enum types. | Hardcoded `SCHEMA_SQL` in `tests/conftest.py` divergent from `DATABASE_DESIGN.md`. | `tests/conftest.py` | Removed `SCHEMA_SQL`. Alembic programmatic upgrade `command.upgrade(alembic_cfg, "head")` applies migrations cleanly to test database. | None. |
 | `DEF-002` | High | Asyncpg connection pool exhaustion and socket starvation on Windows host. | `scope="function"` pool fixtures opened and closed dozens of TCP connections rapidly. | `tests/conftest.py` | Refactored `pg_pool` to `scope="session"` with 5-20 connection limit and transaction rollback isolation. Suite time reduced from >70s to <35s. | None. |
 | `DEF-003` | Medium | Five concurrency tests swallowed exceptions silently via `except Exception: pass`. | Incomplete assertion logic in `test_concurrent_posting.py` allowing unhandled deadlocks to pass. | `tests/database/test_concurrent_posting.py` | Removed all 5 swallow blocks; added explicit assertion of worker exception types and zero deadlocks. | None. |
-| `DEF-004` | Medium | Mobile CI failure in GitHub Actions run `42175358334` (`mobile-quality`). | Import paths referenced non-existent `package:mobile/...` instead of `package:gadispot_mobile/...`. | `mobile/lib/features/payments/presentation/demo_payment_view.dart`, `mobile/test/features/payments/demo_payment_view_test.dart` | Fixed imports to `package:gadispot_mobile/...`. Verified on GitHub Actions run `42180969205` (0 analyzer errors, 37 tests passed). | None. |
+| `DEF-004` | Medium | Mobile CI failure in GitHub Actions run `42175358334` (`mobile-quality`). | Import paths referenced non-existent `package:mobile/...` instead of `package:gadispot_mobile/...`. | `mobile/lib/features/payments/presentation/demo_payment_view.dart`, `mobile/test/features/payments/demo_payment_view_test.dart` | Fixed imports to `package:gadispot_mobile/...`. Verified on GitHub Actions run `42183290733` (0 analyzer errors, 37 tests passed). | None. |
 | `DEF-005` | Low | Booking lifecycle test reported 401 instead of 409 in full suite under older runs. | Missing driver bearer authorization header in competing hold request. | `tests/api/test_booking_lifecycle.py` | Added Authorization header to competing hold request; test passes deterministically with HTTP 409 `SLOT_ALREADY_RESERVED`. | None. |
+| `DEF-006` | Low | Database migration test checked only 14 core enums; omitted 2 payment enums. | `expected_enums` in `tests/database/test_migrations.py` omitted `payment_status_enum` and `payment_provider_enum`. | `tests/database/test_migrations.py` | Added both enums to `expected_enums`; test verifies all 16 registered database enums. | None. |
+| `DEF-007` | Low | Untested fallback when Redis drops or raises connection error during rate limiting. | Missing unit test for Redis exception path in `SlidingWindowRateLimiter.is_rate_limited`. | `tests/api/test_security_rbac.py` | Added test asserting rate limiter gracefully fails open without raising unhandled exceptions. | None. |
+| `DEF-008` | Medium | `Settings` model validator did not prohibit `DEBUG=True` when `ENVIRONMENT=production`. | Incomplete production security validation in `backend/app/core/config.py`. | `backend/app/core/config.py`, `tests/api/test_config.py` | Added validator raising `ValueError` if `DEBUG=True` in production; added unit test verifying rejection. | None. |
 
 ---
 
@@ -98,24 +102,24 @@ Zero internal technical blockers remain for development. Live commercial pilot l
 ### Pytest Backend Suite Execution
 - **Exact Command:** `python -m pytest tests/ -v`
 - **Execution Environment:** Windows 11, Python 3.14.6, PostgreSQL 16.14 (localhost:5432), Redis 7.4.12 (localhost:6379)
-- **Total Collected Tests:** 83
-- **Passed Tests:** 83
+- **Total Collected Tests:** 84
+- **Passed Tests:** 84
 - **Failed Tests:** 0
 - **Errors:** 0
 - **Skipped Tests:** 0
 - **Exit Code:** 0
-- **Execution Duration:** 34.99 seconds (Run 2 stability re-run)
+- **Execution Duration:** 41.07 seconds
 
 ```text
 ============================= test session starts =============================
 platform win32 -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0
 rootdir: C:\Users\ARYAN - AYUSH\OneDrive\Desktop\Gadispot
 configfile: pytest.ini
-collected 83 items
+collected 84 items
 
 tests/api/test_auth.py (6/6 passed)
 tests/api/test_booking_lifecycle.py (1/1 passed)
-tests/api/test_config.py (6/6 passed)
+tests/api/test_config.py (7/7 passed)
 tests/api/test_health.py (14/14 passed)
 tests/api/test_payments.py (6/6 passed)
 tests/api/test_security_rbac.py (3/3 passed)
@@ -123,7 +127,7 @@ tests/database/test_booking_exclusion.py (4/4 passed)
 tests/database/test_concurrency_stress.py (1/1 passed - 50 concurrent holds)
 tests/database/test_concurrent_posting.py (2/2 passed - zero deadlocks)
 tests/database/test_ledger_immutability.py (7/7 passed - Zero Child Lock triggers)
-tests/database/test_migrations.py (3/3 passed - 16 tables, 14 enums)
+tests/database/test_migrations.py (3/3 passed - 17 tables, 16 enums)
 tests/payments/test_demo_adapter.py (4/4 passed)
 tests/payments/test_payment_concurrency.py (1/1 passed)
 tests/payments/test_payment_security.py (3/3 passed)
@@ -135,7 +139,7 @@ tests/unit/test_compatibility.py (3/3 passed)
 tests/unit/test_pricing.py (2/2 passed)
 tests/unit/test_workers.py (3/3 passed)
 
-============================= 83 passed in 34.99s =============================
+============================= 84 passed in 41.07s =============================
 ```
 
 ### Flutter Mobile Test Suite Execution
@@ -153,14 +157,14 @@ tests/unit/test_workers.py (3/3 passed)
 
 - **Workflow Name:** `Gadispot CI/CD Pipeline` (`.github/workflows/spec-validation.yml`)
 - **Trigger:** Push to `main` branch
-- **Latest Relevant Run:** Run ID `42180969205`
+- **Latest Relevant Run:** Run ID `42183290733`
 - **Previous Failure Analyzed:** Run ID `42175358334` (Job `mobile-quality` failed due to package import paths in demo payment view).
 - **Remediation Commit:** Commit `0166288` (`fix(mobile): resolve package import paths and typing for payments demo view`).
-- **Job Status Breakdown (Run 42180969205):**
-  1. `Specification & Docker Architecture Validation`: **SUCCESS** (6s)
-  2. `Backend Linting & Formatting Check`: **SUCCESS** (7s)
-  3. `PostGIS 16 & Redis Integration Tests`: **SUCCESS** (54s)
-  4. `Flutter Analysis & Widget Tests`: **SUCCESS** (43s)
+- **Job Status Breakdown (Run 42183290733):**
+  1. `Specification & Docker Architecture Validation`: **SUCCESS** (10s)
+  2. `Backend Linting & Formatting Check`: **SUCCESS** (6s)
+  3. `PostGIS 16 & Redis Integration Tests`: **SUCCESS** (1m11s)
+  4. `Flutter Analysis & Widget Tests`: **SUCCESS** (40s - 37 tests passed)
 - **Overall Pipeline Verdict:** **100% GREEN (All 4 jobs passed)**.
 
 ---
@@ -172,8 +176,8 @@ tests/unit/test_workers.py (3/3 passed)
 - **Alembic Revisions:**
   - `001_initial_schema.py` (Initial 14 tables, 14 enums, GiST exclusion, plpgsql triggers)
   - `002_audit_events.py` (`audit_events` table with immutable SHA-256 hash)
-  - `003_demo_payments.py` (Demo payment quotes, simulation flags, and audit fields)
-- **Current Alembic Head:** `003_demo_payments (head)`
+  - `003_demo_payments.py` (`payments` table, 2 payment enums, simulation flags, and audit fields)
+- **Current Alembic Head:** `003_demo_payments (head)` (Total: 17 tables, 16 registered database enums)
 - **Fresh Database Migration Result:** Verified programmatic migration applies cleanly to fresh PostgreSQL test database via `alembic.command.upgrade(alembic_cfg, "head")`.
 - **Integrity Constraints Verified:**
   - GiST temporal exclusion constraint `prevent_overlapping_active_reservations` rejects overlapping reservations (`23P01`) under 50 competing workers.
@@ -207,15 +211,15 @@ The following documents were authored, updated, or reconciled during Phase 01:
 3. `docs/engineering/KNOWN_ISSUES_AND_BLOCKERS.md` (Created):
    - Master blocker register separating statutory external rails (`DEP-PAY-01`, `DEP-TEL-01`, `DEP-LEG-01..03`), proposed commercial policies, and host environment boundaries.
 4. `docs/engineering/IMPLEMENTATION_TASK_TRACKER.md` (Updated):
-   - Reconciled technical sprint work packages (M0–M10) with canonical strategic roadmap (`phases.md` Phase 00–14); updated test count to 83/83 pytest tests and 37 mobile tests.
+   - Reconciled technical sprint work packages (M0–M10) with canonical strategic roadmap (`phases.md` Phase 00–14); updated test count to 84/84 pytest tests and 37 mobile tests.
 5. `docs/engineering/IMPLEMENTATION_READINESS_REPORT.md` (Updated):
-   - Replaced outdated counts (66 tests, Nov 5) with verified current counts (83 pytest tests, 37 Flutter tests, migration `003_demo_payments`, CI run `42180969205`).
+   - Replaced outdated counts with verified current counts (84 pytest tests, 37 Flutter tests, migration `003_demo_payments`, CI run `42183290733`).
 6. `README.md` (Updated):
-   - Updated backend pytest suite count to 83/83 passing.
+   - Updated backend pytest suite count to 84/84 passing.
 7. `task.md` (Updated):
    - Marked all 8 Phase 01 tasks (`GAD-FOUND-002..007`, `GAD-SEC-001`, `GAD-DEPLOY-001`) as `IMPLEMENTED` with concrete evidence.
 8. `memory.md` (Updated):
-   - Synchronized agent memory with verified Phase 01 completion, 83 passed tests, and CI/CD green status.
+   - Synchronized agent memory with verified Phase 01 completion, 84 passed tests, and CI/CD green status.
 
 ---
 
@@ -263,11 +267,11 @@ The following documents were authored, updated, or reconciled during Phase 01:
 | **Gate 01** | Repository & Developer Setup | **PASS** | `git status -s`, `README.md` canonical setup instructions | None |
 | **Gate 02** | Backend Foundation | **PASS** | `ruff check backend/` (0 errors), `tests/api/test_health.py` (14 passed) | None |
 | **Gate 03** | Database Foundation | **PASS** | `alembic current` (`003_demo_payments`), `tests/database/` (15 passed) | None |
-| **Gate 04** | Flutter Foundation | **PASS** | `validate_mobile_spec.py`, GitHub Actions CI `42180969205` (37 passed) | Host SDK omitted (CI green) |
+| **Gate 04** | Flutter Foundation | **PASS** | `validate_mobile_spec.py`, GitHub Actions CI `42183290733` (37 passed) | Host SDK omitted (CI green) |
 | **Gate 05** | Local Infrastructure | **PASS** | `validate_docker_spec.py` (100% green), multi-stage Dockerfile | None |
-| **Gate 06** | Test Reliability | **PASS** | `pytest tests/ -v` (83/83 passed, 0 failures, 0 deadlocks) | None |
-| **Gate 07** | CI/CD Quality Gates | **PASS** | GitHub Actions run `42180969205` (All 4 jobs passed) | None |
-| **Gate 08** | Security & Configuration | **PASS** | `test_production_demo_mode_safety_guard`, `tests/security/` (4 passed) | None |
+| **Gate 06** | Test Reliability | **PASS** | `pytest tests/ -v` (84/84 passed, 0 failures, 0 deadlocks) | None |
+| **Gate 07** | CI/CD Quality Gates | **PASS** | GitHub Actions run `42183290733` (All 4 jobs passed) | None |
+| **Gate 08** | Security & Configuration | **PASS** | `test_production_demo_mode_safety_guard`, `test_production_debug_mode_safety_guard`, `tests/security/` (4 passed) | None |
 | **Gate 09** | Documentation & Traceability | **PASS** | `validate_spec.py` (100% green), `PHASE_01_VALIDATION_MATRIX.md` | None |
 | **Gate 10** | Architecture Preservation | **PASS** | Architectural compliance audit; zero premature Phase 02+ features | None |
 
@@ -285,4 +289,4 @@ Phase 02 (**Authentication, Identity & Scoped Role-Based Access Control**) can s
 1. **FastAPI Backend:** Fully bootstrapped with Pydantic v2 settings, asyncpg connection pooling, Redis 7+ rate limiting, RFC 7807 error handling, and modular routing under `/api/v1/auth/`.
 2. **Database Schema:** PostgreSQL 16 `users` and `user_roles` tables are already provisioned with foreign keys, role enums (`DRIVER`, `OWNER`, `GUARD`, `OPERATIONS`, `ADMIN`), and unique phone number indexes via Alembic migration `001_initial_schema.py`.
 3. **Flutter Client:** Clean Architecture scaffolding in `gadispot_mobile` with dynamic role navigation coordinator (`RoleShellCoordinator`), BLoC state management, and Dio authentication interceptors is ready to receive the Firebase Phone Auth client SDK.
-4. **Automated Testing Baseline:** 83 backend pytest tests and 37 Flutter tests provide a green regression shield for Phase 02 implementation.
+4. **Automated Testing Baseline:** 84 backend pytest tests and 37 Flutter tests provide a green regression shield for Phase 02 implementation.
