@@ -54,7 +54,7 @@ Zero internal technical blockers remain for development. Live commercial pilot l
 | **Git Repository** | `https://github.com/officialayush5839-arch/Gadispot` |
 | **Current Branch** | `main` |
 | **Initial Commit Hash** | `20448aa` (`docs(phase-00): finalize Phase 00 completion report and governance reconciliation`) |
-| **Final Phase 01 Commit Hash** | `8048294` (`fix(mobile): enforce minSdk 23 and ndkVersion 26.1 for camera & secure storage Android build`) |
+| **Final Phase 01 Commit Hash** | `c531906` (`docs(phase-01): synchronize verification reports and matrix with passing CI run 42197835714`) |
 | **Working Tree Status** | Clean, synchronized |
 | **Operating System** | Windows 11 (Host) / Ubuntu 24.04 (GitHub Actions CI Runner) |
 | **Python Runtime** | Python 3.14.6 (Local host) / Python 3.12 (CI Runner) |
@@ -157,12 +157,12 @@ tests/unit/test_workers.py (3/3 passed)
 
 - **Workflow Name:** `Gadispot CI/CD Pipeline` (`.github/workflows/spec-validation.yml`)
 - **Trigger:** Push to `main` branch
-- **Latest Relevant Run:** Run ID `42197835714` (commit `8048294`)
-- **Job Status Breakdown (Run 42197835714):**
-  1. `Specification & Docker Architecture Validation`: **SUCCESS** (7s - Python 3.12)
-  2. `Backend Linting & Formatting Check`: **SUCCESS** (8s - Python 3.12, genuinely blocking Ruff format check)
-  3. `PostGIS 16 & Redis Integration Tests`: **SUCCESS** (54s - Python 3.12, 84/84 tests passed)
-  4. `Flutter Analysis & Widget Tests`: **SUCCESS** (4m06s - 37 tests passed + Android Debug APK compiled cleanly)
+- **Latest Relevant Run:** Run ID `42198676676` (commit `c531906`)
+- **Job Status Breakdown (Run 42198676676):**
+  1. `Specification & Docker Architecture Validation`: **SUCCESS** (8s - Python 3.12)
+  2. `Backend Linting & Formatting Check`: **SUCCESS** (5s - Python 3.12, genuinely blocking Ruff format check)
+  3. `PostGIS 16 & Redis Integration Tests`: **SUCCESS** (1m01s - Python 3.12, 84/84 tests passed)
+  4. `Flutter Analysis & Widget Tests`: **SUCCESS** (3m29s - 37 tests passed + Android Debug APK compiled cleanly)
 - **Overall Pipeline Verdict:** **100% GREEN (All 4 jobs passed)**.
 
 ---
@@ -193,7 +193,7 @@ tests/unit/test_workers.py (3/3 passed)
 - **Flutter Analyzer:** `flutter analyze --no-fatal-infos` passed with zero errors and zero warnings.
 - **Dart Formatting:** All files compliant with standard Dart style conventions.
 - **Widget & Unit Tests:** 37/37 tests passing in `mobile/test/`.
-- **Android Debug Build:** Verified container build readiness; Android native wrapper present in `mobile/android/`.
+- **Android Debug Build:** Verified real Android debug APK compilation in CI; Android platform wrapper is scaffolded dynamically during workflow execution (`flutter create . --org com.gadispot --platforms=android`) and configured via `scripts/configure_mobile_android.py` (AGP 8.6.0, Gradle 8.7, compileSdk 36, minSdk 23, ndkVersion 26.1.10909125, Java 17).
 - **Platform Verification Limitations:** Local Windows host environment lacks Flutter SDK in PATH; verified through remote Ubuntu CI runner (`mobile-quality`). iOS native IPA compilation requires macOS runner with Xcode tools (deferred to release packaging).
 
 ---
@@ -248,8 +248,8 @@ The following documents were authored, updated, or reconciled during Phase 01:
 +-------------+------------------------------------+-----------------------+-----------------------------+-----------------------+--------------+
 | DEP-PAY-01  | Razorpay Route PA Underwriting     | HIGH (Launch Blocker) | PRD.md §18, FD-05           | Corporate filings     | Phase 06/12  |
 | DEP-TEL-01  | TRAI DLT SMS Registration          | HIGH (Launch Blocker) | PRD.md §12.1, GAD-AUTH-001  | DLT portal filing     | Phase 02/12  |
-| DEP-LEG-01  | BBMP Commercial Parking Review     | MEDIUM (Pilot Blocker)| phases.md §1.3.1 (CNF-007)  | Municipal review      | Phase 12     |
-| DEP-LEG-02  | Corporate GST & ITC Filing         | MEDIUM (Finance Gate) | PAYMENT_AND_LEDGER_DESIGN§2 | GST practitioner sign | Phase 06/12  |
+| DEP-LEG-01  | Corporate GST & ITC Filing (Sec 9) | MEDIUM (Finance Gate) | PAYMENT_AND_LEDGER_DESIGN§2 | GST practitioner sign | Phase 06/12  |
+| DEP-LEG-02  | BBMP Driveway Parking Bylaw Review | MEDIUM (Pilot Blocker)| phases.md §1.3.1 (CNF-007)  | Municipal review      | Phase 12     |
 | DEP-LEG-03  | Host-Driver Terms of Service       | MEDIUM (Legal Gate)   | PRD.md §34, USER_FLOWS.md   | Commercial counsel    | Phase 03/12  |
 | LIM-ENV-01  | Windows Host lacks Flutter in PATH | LOW (Local Dev Limit) | flutter --version (Host)    | Install local Flutter | Continuous   |
 | LIM-ENV-02  | iOS compilation requires macOS     | LOW (Platform Limit)  | Apple platform licensing    | macos-14 CI runner    | Phase 13     |
@@ -265,10 +265,10 @@ The following documents were authored, updated, or reconciled during Phase 01:
 | **Gate 01** | Repository & Developer Setup | **PASS** | `git status -s`, `README.md` canonical setup instructions | None |
 | **Gate 02** | Backend Foundation | **PASS** | `ruff check backend/` (0 errors), `tests/api/test_health.py` (14 passed) | None |
 | **Gate 03** | Database Foundation | **PASS** | `alembic current` (`003_demo_payments`), `tests/database/` (15 passed) | None |
-| **Gate 04** | Flutter Foundation | **PASS** | `validate_mobile_spec.py`, GitHub Actions CI `42183290733` (37 passed) | Host SDK omitted (CI green) |
+| **Gate 04** | Flutter Foundation | **PASS** | `validate_mobile_spec.py`, GitHub Actions CI `42198676676` (37 tests + Android Debug APK passed) | Host SDK omitted (CI green) |
 | **Gate 05** | Local Infrastructure | **PASS** | `validate_docker_spec.py` (100% green), multi-stage Dockerfile | None |
 | **Gate 06** | Test Reliability | **PASS** | `pytest tests/ -v` (84/84 passed, 0 failures, 0 deadlocks) | None |
-| **Gate 07** | CI/CD Quality Gates | **PASS** | GitHub Actions run `42183290733` (All 4 jobs passed) | None |
+| **Gate 07** | CI/CD Quality Gates | **PASS** | GitHub Actions run `42198676676` (All 4 jobs passed) | None |
 | **Gate 08** | Security & Configuration | **PASS** | `test_production_demo_mode_safety_guard`, `test_production_debug_mode_safety_guard`, `tests/security/` (4 passed) | None |
 | **Gate 09** | Documentation & Traceability | **PASS** | `validate_spec.py` (100% green), `PHASE_01_VALIDATION_MATRIX.md` | None |
 | **Gate 10** | Architecture Preservation | **PASS** | Architectural compliance audit; zero premature Phase 02+ features | None |

@@ -2215,7 +2215,7 @@ Execution Questions Answered:
   - Production container image runs as unprivileged user (`gadispot`, UID 1000).
 - **Verification & Evidence:**
   - Verification: `python scripts/validate_docker_spec.py` passes 100%; CI runs PostGIS 16 & Redis tests cleanly.
-  - Evidence: Clean validation report and GitHub Actions CI run `42197835714`.
+  - Evidence: Clean validation report and GitHub Actions CI run `42198676676`.
 - **Completion Definition:** Satisfies DoD 2, 5, 6.
 
 ---

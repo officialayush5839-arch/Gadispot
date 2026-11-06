@@ -21,7 +21,7 @@ The repository has undergone a complete, genuine engineering transformation. Fro
 3. **Cross-Platform Mobile Client:** Flutter 3.24.x application (`mobile/lib/`) adhering to strict Clean Architecture, featuring dynamic role-based shells (`DriverShell`, `OwnerShell`, `GuardShell`, `OpsShell`), Dio HTTP client with automatic request ID injection, Keystore/Keychain secure token storage with wipe-on-logout, offline schedule caching, and an anti-slop monochromatic design system.
 4. **Pluggable Payment Infrastructure:** Complete `PaymentGatewayPort` abstraction supporting Razorpay and Cashfree adapters with HMAC-SHA256 signature verification, open-source Hyperswitch orchestration adapter, dynamic NPCI UPI QR generation (`qrcode[pil]`), durable webhook deduplication via unique database constraints, and a 6-stage asynchronous refund state machine. Mode A (Simulated Demo Payment) is default; Mode B (YOUPI-PG) is strictly isolated.
 5. **Security Baseline & Background Workers:** Role-based access control (RBAC), multi-tenant IDOR shielding, two-tier 480-second checkout hold expiration engine (`FOR UPDATE SKIP LOCKED` + inline sweep), DPDPA 2023 7-day gate photo automated purge with immutable SHA-256 audit hashing, and PyOTP RFC 6238 TOTP operations 2FA.
-6. **Automated Verification:** 84 automated backend pytest tests passing in 41.07s (`tests/api/`, `tests/database/`, `tests/payments/`, `tests/security/`, `tests/unit/`), 37 Flutter tests and Android debug APK build passing in CI run `42197835714`, zero Ruff lint violations, 56 clean formatted files, and 100% pass across all specification and container validation scripts.
+6. **Automated Verification:** 84 automated backend pytest tests passing in 41.07s (`tests/api/`, `tests/database/`, `tests/payments/`, `tests/security/`, `tests/unit/`), 37 Flutter tests and Android debug APK build passing in CI run `42198676676`, zero Ruff lint violations, 56 clean formatted files, and 100% pass across all specification and container validation scripts.
 
 All eight engineering readiness acceptance gates (**Gates A through H**) evaluate to **PASS**, yielding a final readiness score of **100%**.
 
@@ -62,12 +62,12 @@ All six major engineering defects identified during the Phase 0 audit have been 
 
 ### Defect 1: Raw SQL Schema Bypassing Migrations in `tests/conftest.py`
 - **Initial Finding:** Tests bypassed Alembic and executed a handcoded, divergent `SCHEMA_SQL` string directly against PostgreSQL.
-- **Remediation:** Deleted raw `SCHEMA_SQL` entirely. Built canonical Alembic migration revisions (`001_initial_schema.py` and `002_audit_events.py`) covering all 16 tables, 14 domain enums, triggers, and GiST constraints. `tests/conftest.py` executes schema migrations via `alembic.command.upgrade(alembic_cfg, "head")`.
-- **Verification:** Verified via `tests/database/test_migrations.py` validating that all 16 tables and 14 enums match the database catalog.
+- **Remediation:** Deleted raw `SCHEMA_SQL` entirely. Built canonical Alembic migration revisions (`001_initial_schema.py`, `002_audit_events.py`, and `003_demo_payments.py`) covering all 17 tables, 16 registered database enums (14 core domain + 2 payment enums), triggers, and GiST constraints. `tests/conftest.py` executes schema migrations via `alembic.command.upgrade(alembic_cfg, "head")`.
+- **Verification:** Verified via `tests/database/test_migrations.py` validating that all 17 tables and 16 enums match the database catalog.
 
 ### Defect 2: Severe Schema Divergence between `conftest.py` and `DATABASE_DESIGN.md`
 - **Initial Finding:** Omitted PostGIS extension, omitted 9 production tables, stripped parking spaces and reservations to toy stubs, and contained status enum naming conflicts.
-- **Remediation:** Full canonical schema implemented with fallback domain support for development environments without postgis.control. All 16 tables match `DATABASE_DESIGN.md` column-for-column. GiST exclusion constraint correctly checks active hold and confirmed reservation statuses.
+- **Remediation:** Full canonical schema implemented with fallback domain support for development environments without postgis.control. All 17 tables match canonical database architecture column-for-column. GiST exclusion constraint correctly checks active hold and confirmed reservation statuses.
 - **Verification:** Passed `test_canonical_tables_exist` and `test_enum_types_registered`.
 
 ### Defect 3: Silent Exception Swallowing in Concurrency Tests
@@ -78,7 +78,7 @@ All six major engineering defects identified during the Phase 0 audit have been 
 ### Defect 4: Connection Pool Exhaustion on Windows
 - **Initial Finding:** `scope="function"` pool fixtures caused rapid socket starvation on Windows under asyncpg, resulting in `RuntimeError: Could not connect to local PostgreSQL`.
 - **Remediation:** Refactored `tests/conftest.py` to use `scope="session"` connection pooling with 10-connection limits and connection recycling. Tests isolate database mutations using transactional rollbacks or unique UUID entity namespaces.
-- **Verification:** Complete 66-test suite executes in 22.64s without a single socket timeout or connection leak.
+- **Verification:** Complete 84-test suite executes in 41.07s without a single socket timeout or connection leak.
 
 ### Defect 5: Machine-Specific Windows Paths in Documentation
 - **Initial Finding:** Hardcoded local Windows file paths (`c:\Users\ARYAN - AYUSH\...`) embedded in repository markdown files.
@@ -97,7 +97,7 @@ All six major engineering defects identified during the Phase 0 audit have been 
 | Gate | Name | Final Status | Score | Empirical Verification Evidence |
 |---|---|:---:|:---:|---|
 | **GATE A** | Repository Integrity | **PASS** | 100% | Clean git working tree; zero hardcoded machine paths in code or engineering docs; `scripts/validate_spec.py` passes 100% green; zero broken markdown links. |
-| **GATE B** | Database Readiness | **PASS** | 100% | Alembic migrations apply cleanly (`001_initial_schema.py`, `002_audit_events.py`); all 16 tables and 14 enums verified against catalog; 50-worker concurrency stress test proves GiST temporal exclusion with 0 deadlocks and exactly 1 winner; Zero Child Lock ledger posting verified. |
+| **GATE B** | Database Readiness | **PASS** | 100% | Alembic migrations apply cleanly (`001_initial_schema.py`, `002_audit_events.py`, `003_demo_payments.py`); all 17 tables and 16 enums verified against catalog; 50-worker concurrency stress test proves GiST temporal exclusion with 0 deadlocks and exactly 1 winner; Zero Child Lock ledger posting verified. |
 | **GATE C** | Backend Readiness | **PASS** | 100% | Modular monolith running on FastAPI (`backend/app/main.py`); `/health/live` and `/health/ready` probes pass; RFC 7807 problem details error handling verified; Pydantic v2 schemas; OpenAPI 3.1 specification exported to `docs/technical/openapi.json`. |
 | **GATE D** | Mobile Readiness | **PASS** | 100% | Flutter 3.24.x application structured in Clean Architecture (`mobile/lib/`); dynamic role shells (`DriverShell`, `OwnerShell`, `GuardShell`, `OpsShell`); Dio client with automatic request ID; Keystore/Keychain secure storage with wipe-on-logout; zero AI-slop design compliance; widget tests pass 100%. |
 | **GATE E** | Payment Readiness | **PASS** | 100% | `PaymentGatewayPort` with Razorpay and Cashfree adapters; open-source Hyperswitch adapter; dynamic UPI QR generation; HMAC-SHA256 webhook signature verification; durable webhook deduplication via database unique constraint; 6-stage asynchronous refund state machine with illegal transition rejection. |
