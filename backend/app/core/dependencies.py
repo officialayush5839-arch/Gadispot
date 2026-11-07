@@ -1,7 +1,10 @@
 """FastAPI async dependency injectors."""
 
+import asyncio
+import logging
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 
 import redis.asyncio as aioredis
 from fastapi import Depends, Header, Request
@@ -13,7 +16,10 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import ForbiddenException, UnauthorizedException
 from app.core.security import decode_token, verify_token_type
 from app.db.session import async_session_factory
+from app.models.session import UserSession
 from app.models.users import AccountStatus, User
+
+logger = logging.getLogger("gadispot.dependencies")
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -65,9 +71,11 @@ async def get_current_user(
     payload = decode_token(raw_token)
     verify_token_type(payload, "access")
 
-    # Redis token blocklist verification
+    # Redis token blocklist verification with authoritative database fallback
     jti = payload.get("jti")
     family_id = payload.get("family_id")
+    redis_failed = False
+
     if jti:
         redis_client = None
         app = getattr(request, "app", None)
@@ -89,6 +97,7 @@ async def get_current_user(
                 created_client = True
             except Exception:
                 redis_client = None
+                redis_failed = True
 
         if redis_client is not None:
             try:
@@ -105,11 +114,48 @@ async def get_current_user(
                             detail="Session family has been revoked.",
                             code="TOKEN_REVOKED",
                         )
-            except aioredis.RedisError:
-                pass
+            except UnauthorizedException:
+                raise
+            except (aioredis.RedisError, asyncio.TimeoutError, ConnectionError, OSError) as r_exc:
+                logger.warning(
+                    "Redis blocklist check failed (%s); falling back to authoritative database check",
+                    r_exc,
+                )
+                redis_failed = True
             finally:
                 if created_client:
                     await redis_client.aclose()
+        else:
+            redis_failed = True
+
+    # Authoritative Database Fallback:
+    # If Redis is unavailable or failed, verify the session family's revocation state directly in PostgreSQL.
+    if redis_failed and family_id:
+        try:
+            fam_uuid = uuid.UUID(family_id)
+            active_session_stmt = (
+                select(UserSession.id)
+                .where(
+                    UserSession.family_id == fam_uuid,
+                    UserSession.is_revoked.is_(False),
+                    UserSession.expires_at > datetime.now(timezone.utc),
+                )
+                .limit(1)
+            )
+            active_res = await db.execute(active_session_stmt)
+            if active_res.scalar_one_or_none() is None:
+                raise UnauthorizedException(
+                    detail="Token family has been revoked or expired.",
+                    code="TOKEN_REVOKED",
+                )
+        except UnauthorizedException:
+            raise
+        except Exception as db_exc:
+            logger.error("Authoritative database session verification failed: %s", db_exc)
+            raise UnauthorizedException(
+                detail="Unable to verify token revocation status.",
+                code="REVOCATION_CHECK_UNAVAILABLE",
+            )
 
     user_id_str = payload.get("sub")
     if not user_id_str:

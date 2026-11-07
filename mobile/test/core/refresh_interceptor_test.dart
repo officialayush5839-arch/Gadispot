@@ -36,24 +36,40 @@ void main() {
     });
 
     test('ignores 401 on auth endpoints to prevent recursion loops', () async {
-      final reqOptions = RequestOptions(path: '/api/v1/auth/session');
-      final dioErr = DioException(
-        requestOptions: reqOptions,
-        response: Response(requestOptions: reqOptions, statusCode: 401),
-        type: DioExceptionType.badResponse,
-      );
+      final authPaths = [
+        '/api/v1/auth/session',
+        '/api/v1/auth/exchange',
+        '/api/v1/auth/firebase-exchange',
+        '/api/v1/auth/refresh',
+        '/api/v1/auth/logout',
+        '/api/v1/auth/switch-role',
+        '/api/v1/auth/2fa/setup',
+        '/api/v1/auth/2fa/verify',
+      ];
 
-      final handler = TestErrorInterceptorHandler();
-      await interceptor.onError(dioErr, handler);
+      for (final p in authPaths) {
+        final reqOptions = RequestOptions(path: p);
+        final dioErr = DioException(
+          requestOptions: reqOptions,
+          response: Response(requestOptions: reqOptions, statusCode: 401),
+          type: DioExceptionType.badResponse,
+        );
 
-      expect(handler.passedError, equals(dioErr));
+        final handler = TestErrorInterceptorHandler();
+        await interceptor.onError(dioErr, handler);
+        expect(handler.passedError, equals(dioErr));
+      }
     });
 
     test('forwards 401 without refresh when refresh token is absent', () async {
       await storage.saveAccessToken('expired_access_token');
       // No refresh token saved
 
-      final reqOptions = RequestOptions(path: '/api/v1/spaces/search');
+      final reqOptions = RequestOptions(
+        baseUrl: 'http://testserver',
+        path: '/api/v1/spaces/search',
+        headers: {'Authorization': 'Bearer expired_access_token'},
+      );
       final dioErr = DioException(
         requestOptions: reqOptions,
         response: Response(requestOptions: reqOptions, statusCode: 401),
@@ -71,7 +87,11 @@ void main() {
       await storage.saveAccessToken('expired_access_token');
       await storage.saveRefreshToken('invalid_refresh_token');
 
-      final reqOptions = RequestOptions(path: '/api/v1/spaces/search');
+      final reqOptions = RequestOptions(
+        baseUrl: 'http://testserver',
+        path: '/api/v1/spaces/search',
+        headers: {'Authorization': 'Bearer expired_access_token'},
+      );
       final dioErr = DioException(
         requestOptions: reqOptions,
         response: Response(requestOptions: reqOptions, statusCode: 401),

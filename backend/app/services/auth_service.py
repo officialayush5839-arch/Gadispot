@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
-from app.core.exceptions import ForbiddenException, UnauthorizedException
+from app.core.exceptions import ConflictException, ForbiddenException, UnauthorizedException
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -115,17 +115,40 @@ async def exchange_firebase_token_for_session(
     phone_number = claims["phone_number"]
     firebase_uid = claims.get("uid")
 
-    # 1. Look up existing user by phone_number or firebase_uid with roles eagerly loaded
-    lookup_conditions = [User.phone_number == phone_number]
+    # 1. Look up existing users by firebase_uid and phone_number independently
+    user_by_uid = None
     if firebase_uid:
-        lookup_conditions.append(User.firebase_uid == firebase_uid)
+        stmt_uid = select(User).where(User.firebase_uid == firebase_uid).options(selectinload(User.roles))
+        user_by_uid = (await db.execute(stmt_uid)).scalar_one_or_none()
 
-    stmt = select(User).where(or_(*lookup_conditions)).options(selectinload(User.roles))
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
+    stmt_phone = select(User).where(User.phone_number == phone_number).options(selectinload(User.roles))
+    user_by_phone = (await db.execute(stmt_phone)).scalar_one_or_none()
 
-    # 2. Provision user if first-time driver login (race-free with savepoint)
-    if not user:
+    # 2. Strict identity conflict resolution & account takeover prevention
+    if user_by_uid and user_by_phone:
+        if user_by_uid.id != user_by_phone.id:
+            raise ConflictException(
+                detail="Identity conflict: verified phone number and Firebase credentials belong to different accounts.",
+                title="Identity Conflict",
+                code="IDENTITY_CONFLICT",
+            )
+        user = user_by_uid
+    elif user_by_uid and not user_by_phone:
+        # Verified phone update on existing Firebase account
+        user_by_uid.phone_number = phone_number
+        user = user_by_uid
+    elif user_by_phone and not user_by_uid:
+        if user_by_phone.firebase_uid is not None and user_by_phone.firebase_uid != firebase_uid:
+            raise ConflictException(
+                detail="This phone number is already registered with a different identity. Please log in with your original account.",
+                title="Account Already Linked",
+                code="PHONE_ALREADY_LINKED",
+            )
+        if firebase_uid:
+            user_by_phone.firebase_uid = firebase_uid
+        user = user_by_phone
+    else:
+        # First-time driver provisioning (race-free with savepoint)
         try:
             async with db.begin_nested():
                 user = User(
@@ -149,14 +172,15 @@ async def exchange_firebase_token_for_session(
             result = await db.execute(stmt)
             user = result.scalar_one()
         except IntegrityError:
-            # Handle concurrent registration race: another request committed first
-            stmt = select(User).where(or_(*lookup_conditions)).options(selectinload(User.roles))
-            result = await db.execute(stmt)
-            user = result.scalar_one()
+            # Handle concurrent registration race: re-fetch committed user
+            if firebase_uid:
+                stmt_uid = select(User).where(User.firebase_uid == firebase_uid).options(selectinload(User.roles))
+                user = (await db.execute(stmt_uid)).scalar_one_or_none()
+            if not user:
+                stmt_phone = select(User).where(User.phone_number == phone_number).options(selectinload(User.roles))
+                user = (await db.execute(stmt_phone)).scalar_one()
 
-    # 3. Update firebase_uid and last_login_at if changed
-    if firebase_uid and user.firebase_uid != firebase_uid:
-        user.firebase_uid = firebase_uid
+    # 3. Update last_login_at
     user.last_login_at = datetime.now(timezone.utc)
     await db.flush()
 
@@ -192,6 +216,7 @@ async def exchange_firebase_token_for_session(
         "phone_number": user.phone_number,
         "roles": role_names,
         "verified": True,
+        "family_id": str(family_id),
     }
     access_token = create_access_token(subject=str(user.id), claims=token_claims)
     refresh_token = create_refresh_token(
@@ -232,7 +257,7 @@ async def exchange_firebase_token_for_session(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": 3600,
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "user": {
             "id": user.id,
             "phone_number": user.phone_number,
@@ -283,8 +308,8 @@ async def refresh_session_tokens(
         except aioredis.RedisError:
             pass
 
-    # 3. Query UserSession record
-    stmt = select(UserSession).where(UserSession.refresh_token_hash == token_hash)
+    # 3. Query UserSession record with row-level lock for atomic rotation
+    stmt = select(UserSession).where(UserSession.refresh_token_hash == token_hash).with_for_update()
     result = await db.execute(stmt)
     session_rec = result.scalar_one_or_none()
 
@@ -294,12 +319,16 @@ async def refresh_session_tokens(
     # 4. Token Reuse Detection
     if session_rec.is_revoked or session_rec.revoked_at is not None:
         now = datetime.now(timezone.utc)
-        # REUSE DETECTED: Immediately revoke ALL active sessions for that user
-        await db.execute(
-            update(UserSession)
-            .where(UserSession.user_id == session_rec.user_id, UserSession.is_revoked.is_(False))
-            .values(is_revoked=True, revoked_at=now)
-        )
+        # REUSE DETECTED: Revoke active sessions strictly belonging to this compromised family_id
+        if session_rec.family_id:
+            await db.execute(
+                update(UserSession)
+                .where(UserSession.family_id == session_rec.family_id, UserSession.is_revoked.is_(False))
+                .values(is_revoked=True, revoked_at=now)
+            )
+        else:
+            session_rec.is_revoked = True
+            session_rec.revoked_at = now
         await db.flush()
 
         if redis and session_rec.family_id:
@@ -317,13 +346,13 @@ async def refresh_session_tokens(
             details={
                 "family_id": str(session_rec.family_id) if session_rec.family_id else None,
                 "compromised_hash": token_hash[:16],
-                "all_sessions_revoked": True,
+                "family_sessions_revoked": True,
             },
             ip_address=ip_address,
         )
         await db.commit()
         raise UnauthorizedException(
-            detail="Refresh token reuse detected; all sessions revoked",
+            detail="Refresh token reuse detected; session family revoked",
             code="TOKEN_REVOKED",
         )
 
@@ -375,6 +404,12 @@ async def refresh_session_tokens(
 
     # 8. Issue fresh access token and new rotating refresh token under same family_id
     family_id = session_rec.family_id or uuid.uuid4()
+    token_claims = {
+        "phone_number": user.phone_number,
+        "roles": role_names,
+        "verified": True,
+        "family_id": str(family_id),
+    }
     new_access_token = create_access_token(subject=str(user.id), claims=token_claims)
     new_refresh_token = create_refresh_token(
         subject=str(user.id),
@@ -411,7 +446,7 @@ async def refresh_session_tokens(
         "access_token": new_access_token,
         "refresh_token": new_refresh_token,
         "token_type": "bearer",
-        "expires_in": 3600,
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "user": {
             "id": user.id,
             "phone_number": user.phone_number,

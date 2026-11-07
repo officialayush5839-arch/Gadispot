@@ -10,7 +10,7 @@ from app.core.rate_limiter import (
     refresh_rate_limiter,
     totp_rate_limiter,
 )
-from app.core.security import decode_token
+from app.core.security import decode_token, decrypt_totp_secret, encrypt_totp_secret
 from app.models.users import User
 from app.schemas.auth import (
     FirebaseExchangeRequest,
@@ -243,13 +243,26 @@ async def switch_active_role(
     "/2fa/setup",
     response_model=TotpSetupResponse,
     status_code=status.HTTP_200_OK,
-    summary="Initialize RFC 6238 TOTP 2FA for operations personnel",
+    summary="Initialize RFC 6238 TOTP 2FA for authenticated principal",
 )
-async def setup_totp_2fa() -> TotpSetupResponse:
-    """Generate high-entropy Base32 secret, provisioning URI, and QR code for Google Authenticator."""
+async def setup_totp_2fa(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TotpSetupResponse:
+    """Generate high-entropy Base32 secret, persist encrypted in database, and return provisioning QR code."""
+    from datetime import datetime, timezone
+
     secret = generate_totp_secret()
-    uri = get_totp_provisioning_uri(secret, "operations.user@gadispot.in")
+    label = current_user.email or current_user.phone_number
+    uri = get_totp_provisioning_uri(secret, label)
     qr_b64 = generate_totp_qr_base64(uri)
+
+    # Persist encrypted secret bound to caller (pending verification)
+    current_user.totp_secret_encrypted = encrypt_totp_secret(secret)
+    current_user.totp_enabled = False
+    current_user.totp_verified_at = None
+    await db.flush()
+
     return TotpSetupResponse(
         secret=secret,
         provisioning_uri=uri,
@@ -261,13 +274,40 @@ async def setup_totp_2fa() -> TotpSetupResponse:
     "/2fa/verify",
     response_model=TotpVerifyResponse,
     status_code=status.HTTP_200_OK,
-    summary="Verify an RFC 6238 6-digit TOTP code",
+    summary="Verify an RFC 6238 6-digit TOTP code against the authenticated account's secret",
     dependencies=[Depends(totp_rate_limiter.as_dependency())],
 )
-async def verify_totp(payload: TotpVerifyRequest) -> TotpVerifyResponse:
-    """Verify an RFC 6238 TOTP code against the shared secret within a +/- 30s clock drift window."""
-    is_valid = verify_totp_code(payload.secret, payload.code)
+async def verify_totp(
+    payload: TotpVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TotpVerifyResponse:
+    """Verify code strictly against the caller's account-persisted encrypted secret. Activates 2FA upon success."""
+    from datetime import datetime, timezone
+
+    if not current_user.totp_secret_encrypted:
+        return TotpVerifyResponse(
+            valid=False,
+            message="TOTP 2FA enrollment has not been initialized. Please call /2fa/setup first.",
+        )
+
+    try:
+        authoritative_secret = decrypt_totp_secret(current_user.totp_secret_encrypted)
+    except Exception:
+        return TotpVerifyResponse(
+            valid=False,
+            message="Internal error decrypting enrolled TOTP credentials.",
+        )
+
+    is_valid = verify_totp_code(authoritative_secret, payload.code)
+    if is_valid:
+        current_user.totp_enabled = True
+        current_user.totp_verified_at = datetime.now(timezone.utc)
+        await db.flush()
+
     return TotpVerifyResponse(
         valid=is_valid,
-        message="Verification successful" if is_valid else "Invalid or expired verification code",
+        message="Verification successful. Two-factor authentication is active."
+        if is_valid
+        else "Invalid or expired verification code",
     )

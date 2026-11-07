@@ -269,7 +269,28 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 
 ---
 
-## 15. Audit & Governance Signoff
+## 15. Strategic Phase 2.5: IAM Security Remediation, Hardening & Independent Verification
+
+**Goal:** Re-audit all 9 Phase 02 IAM security findings, harden TOTP with AES-256-GCM and authenticated caller binding, enforce atomic row-level locking on refresh token rotation, eliminate wildcard ADMIN bypass, provide authoritative DB fallback on Redis failure, prevent account takeover during identity linking, and verify with comprehensive automated security test suites.  
+**Status:** **COMPLETED**  
+**Lead:** Principal Application Security Engineer & Independent QA Auditor  
+**Prerequisites:** Phase 02 Completion  
+
+| Task ID | Task Title | Role | Status | Description | Deliverables | Verification Criteria |
+|---|---|---|:---:|---|---|---|
+| `TSK-P25-001` | TOTP 2FA Hardening & Encryption | App Security Engineer | **COMPLETED** | Add Alembic migration `005_totp_hardening`, bind `/2fa/setup` and `/2fa/verify` to authenticated caller, encrypt secret at rest with AES-256-GCM, ignore client secret. | `backend/alembic/versions/005_totp_hardening.py`, `backend/app/core/security.py`, `backend/app/api/v1/endpoints/auth.py`. | Validated via `tests/api/test_auth.py::test_api_totp_setup_and_verify_endpoints`. |
+| `TSK-P25-002` | Authoritative DB Fallback for Redis Outage | Senior Backend Architect | **COMPLETED** | Embed `family_id` into access tokens and implement authoritative PostgreSQL query against `user_sessions` when Redis is degraded. | `backend/app/core/dependencies.py`. | Validated via `tests/api/test_auth.py::test_authoritative_database_revocation_fallback_when_redis_unavailable`. |
+| `TSK-P25-003` | Rate Limiter Exception & Cache Ceilings | Senior Backend Architect | **COMPLETED** | Catch only typed Redis/Timeout errors, add sliding-window memory pruning, and enforce hard cap of 5,000 keys with LRU eviction. | `backend/app/core/rate_limiter.py`. | Validated via `tests/api/test_security_rbac.py::test_rate_limiter_bounded_memory_cache_eviction`. |
+| `TSK-P25-004` | Wildcard ADMIN Removal & Role Aliases | App Security Engineer | **COMPLETED** | Eliminate unilateral `allowed_roles.add(ADMIN)` in `RoleChecker`; add bidirectional `ROLE_ALIASES` mapping. | `backend/app/core/authorization.py`. | Validated via `tests/api/test_security_rbac.py::test_admin_cannot_access_unauthorized_routes_without_explicit_role`. |
+| `TSK-P25-005` | Access Token Lifetime Harmonization | Senior Backend Architect | **COMPLETED** | Configure `ACCESS_TOKEN_EXPIRE_MINUTES: int = 15` in `Settings`, update response schemas and tests to 900s. | `backend/app/core/config.py`, `backend/app/schemas/auth.py`. | Validated via `tests/test_auth_session_lifecycle.py::test_phone_auth_exchange_contract_and_aliases`. |
+| `TSK-P25-006` | Atomic Refresh Concurrency & Family Scoping | Senior Backend Architect | **COMPLETED** | Apply `with_for_update()` row-level locking on `UserSession` during rotation; scope reuse invalidation strictly to `family_id`. | `backend/app/services/auth_service.py`. | Validated via `tests/api/test_auth.py::test_concurrent_refresh_token_rotation_atomic`. |
+| `TSK-P25-007` | Firebase Error Detail Sanitization | App Security Engineer | **COMPLETED** | Sanitize Firebase client error responses to return standard generic RFC 7807 problem details in production. | `backend/app/integrations/firebase.py`. | Validated via `tests/api/test_auth.py::test_phone_auth_exchange_invalid_tokens_rejected`. |
+| `TSK-P25-008` | Mobile Interceptor Exclusions & Coordinated Retries | Senior Flutter Engineer | **COMPLETED** | Exclude all auth endpoints from refresh loops in `DioClient`; coordinate parallel 401 retries with in-flight refresh. | `mobile/lib/core/network/api_client.dart`, `mobile/test/core/refresh_interceptor_test.dart`. | Validated via `mobile/test/core/refresh_interceptor_test.dart`. |
+| `TSK-P25-009` | Account Takeover Defense on Identity Linking | App Security Engineer | **COMPLETED** | Separate `firebase_uid` and `phone_number` checks, eliminate silent overwrites, return fail-closed 409 Conflict on conflict. | `backend/app/services/auth_service.py`. | Validated via `tests/api/test_auth.py::test_identity_conflict_on_phone_with_different_firebase_uid`. |
+
+---
+
+## 16. Audit & Governance Signoff
 
 | Role | Name / Persona | Status | Date |
 |---|---|:---:|:---:|
@@ -277,4 +298,5 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 | Principal Software Architect | Lead Architect Persona | **APPROVED** | 2026-11-05 |
 | Engineering Auditor | Forensic Auditor Persona | **CLEAN** | 2026-11-05 |
 | Lead IAM & Security Architect | Antigravity Phase 02 Lead | **APPROVED** | 2026-11-06 |
+| Independent Application Security Lead | Antigravity Phase 2.5 Lead | **VERIFIED** | 2026-11-07 |
 

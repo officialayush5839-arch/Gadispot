@@ -106,7 +106,7 @@ def verify_firebase_id_token(id_token: str) -> dict[str, Any]:
             logger.warning("Firebase Admin token verification failed: %s", exc)
             if settings.is_production:
                 raise UnauthorizedException(
-                    detail=f"Firebase ID token verification failed: {exc!s}",
+                    detail="The provided authentication token is invalid or expired.",
                     code="FIREBASE_TOKEN_INVALID",
                 )
 

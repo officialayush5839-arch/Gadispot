@@ -57,10 +57,10 @@ class UserProfileResponse(BaseModel):
 class TokenResponse(BaseModel):
     """Session token pair returned upon successful authentication."""
 
-    access_token: str = Field(..., description="Scoped JWT access token (60m validity)")
+    access_token: str = Field(..., description="Scoped JWT access token (15m validity)")
     refresh_token: str = Field(..., description="Internal refresh token (30d validity)")
     token_type: str = Field("bearer", description="Token authentication scheme")
-    expires_in: int = Field(3600, description="Access token expiry in seconds")
+    expires_in: int = Field(900, description="Access token expiry in seconds (15 minutes)")
     user: UserSummary
 
 
@@ -75,8 +75,11 @@ class TotpSetupResponse(BaseModel):
 class TotpVerifyRequest(BaseModel):
     """Payload to verify an RFC 6238 6-digit TOTP code."""
 
-    secret: str = Field(..., min_length=16, description="Base32 TOTP secret")
     code: str = Field(..., min_length=6, max_length=6, description="6-digit TOTP verification code")
+    secret: str | None = Field(
+        None,
+        description="Deprecated optional field; server strictly evaluates against the caller's account-persisted secret.",
+    )
 
 
 class TotpVerifyResponse(BaseModel):

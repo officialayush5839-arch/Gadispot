@@ -119,3 +119,82 @@ async def test_audit_event_service_immutability(db_session):
     assert len(history) >= 1
     assert history[0].action == "PROPERTY_APPROVED"
     assert history[0].details["approved_by"] == "Ops Lead"
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_access_unauthorized_routes_without_explicit_role():
+    """Verify that ADMIN does not unilaterally bypass explicit role requirements."""
+    admin_id = uuid.uuid4()
+    admin_user = User(
+        id=admin_id, phone_number="+919800000099", full_name="Admin User"
+    )
+    admin_user.roles = [UserRole(user_id=admin_id, role=UserRoleEnum.ADMIN)]
+
+    # Endpoint explicitly allows ONLY DRIVER
+    driver_only_checker = require_roles(UserRoleEnum.DRIVER)
+    with pytest.raises(ForbiddenException) as exc_info:
+        driver_only_checker(admin_user)
+    assert exc_info.value.code == "FORBIDDEN_ROLE"
+
+    # Endpoint explicitly allows ADMIN -> passes
+    admin_checker = require_roles(UserRoleEnum.ADMIN)
+    assert admin_checker(admin_user) == admin_user
+
+
+@pytest.mark.asyncio
+async def test_canonical_role_aliases_recognized():
+    """Verify PRD canonical aliases (SPACE_OWNER, SECURITY_GUARD, OPS) map correctly."""
+    owner_id = uuid.uuid4()
+    owner_user = User(
+        id=owner_id, phone_number="+919800000088", full_name="Property Owner"
+    )
+    owner_user.roles = [UserRole(user_id=owner_id, role=UserRoleEnum.OWNER)]
+
+    # Endpoint checks PRD canonical alias SPACE_OWNER
+    space_owner_checker = require_roles("SPACE_OWNER")
+    assert space_owner_checker(owner_user) == owner_user
+
+    # Guard alias check
+    guard_id = uuid.uuid4()
+    guard_user = User(
+        id=guard_id, phone_number="+919800000077", full_name="Security Guard"
+    )
+    guard_user.roles = [UserRole(user_id=guard_id, role=UserRoleEnum.GUARD)]
+
+    security_guard_checker = require_roles("SECURITY_GUARD")
+    assert security_guard_checker(guard_user) == guard_user
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_bounded_memory_cache_eviction():
+    """Verify that SlidingWindowRateLimiter bounds memory usage and evicts expired keys during Redis outage."""
+    import redis.asyncio as aioredis
+
+    limiter = SlidingWindowRateLimiter(
+        key_prefix="fail_closed_test",
+        max_requests=2,
+        window_seconds=10,
+        fail_closed=True,
+    )
+    mock_redis = aioredis.from_url("redis://127.0.0.1:9999", socket_timeout=0.1)
+
+    # First request: within limit
+    is_limited, count, _ = await limiter.is_rate_limited("client_ip", mock_redis)
+    assert is_limited is False
+    assert count == 1
+
+    # Second request: within limit
+    is_limited, count, _ = await limiter.is_rate_limited("client_ip", mock_redis)
+    assert is_limited is False
+    assert count == 2
+
+    # Third request: exceeds limit
+    is_limited, count, retry_after = await limiter.is_rate_limited("client_ip", mock_redis)
+    assert is_limited is True
+    assert count == 3
+    assert retry_after >= 0
+
+    # Test bounded pruning
+    limiter._memory_cache["expired_key"] = [1.0]  # Old timestamp
+    limiter._prune_memory_cache(now=1000.0)
+    assert "expired_key" not in limiter._memory_cache

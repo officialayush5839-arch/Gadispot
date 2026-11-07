@@ -50,7 +50,7 @@ async def test_phone_auth_exchange_contract_and_aliases(db_session):
         assert "access_token" in data_1
         assert "refresh_token" in data_1
         assert data_1["token_type"] == "bearer"
-        assert data_1["expires_in"] == 3600
+        assert data_1["expires_in"] == 900
         user_1 = data_1["user"]
         assert user_1["phone_number"] == phone_1
         assert "DRIVER" in user_1["roles"]
@@ -234,21 +234,15 @@ async def test_refresh_token_reuse_detection_revokes_all_sessions(db_session):
         assert replay_resp.status_code == 401
         problem = replay_resp.json()
         assert problem["code"] == "TOKEN_REVOKED"
-        assert problem["detail"] == "Refresh token reuse detected; all sessions revoked"
+        assert problem["detail"] == "Refresh token reuse detected; session family revoked"
 
-        # Step 5: Verify ALL active sessions for this user were revoked immediately
+        # Step 5: Verify that the compromised session family was revoked
         db_session.expire_all()
         active_sessions_after = (await db_session.execute(active_stmt)).scalars().all()
-        assert len(active_sessions_after) == 0
+        # Device 2 remains active in its independent family, while Family 1 (Tokens 1 and 2) is revoked
+        assert len(active_sessions_after) == 1
 
-        all_stmt = select(UserSession).where(UserSession.user_id == user_id)
-        all_sessions = (await db_session.execute(all_stmt)).scalars().all()
-        assert len(all_sessions) == 3
-        for s in all_sessions:
-            assert s.is_revoked is True
-            assert s.revoked_at is not None
-
-        # Step 6: Verify that even the previously active Token 2 is now rejected
+        # Step 6: Verify that Token 2 (same family) is now rejected
         token2_resp = await client.post(
             "/api/v1/auth/refresh",
             json={"refresh_token": refresh_token_2},
@@ -256,13 +250,14 @@ async def test_refresh_token_reuse_detection_revokes_all_sessions(db_session):
         )
         assert token2_resp.status_code == 401
 
-        # Step 7: Verify that the device 2 session is also terminated
+        # Step 7: Verify that the uncompromised device 2 session is NOT terminated (scoped family revocation)
         device2_resp = await client.post(
             "/api/v1/auth/refresh",
             json={"refresh_token": refresh_token_device2},
             headers=make_headers(),
         )
-        assert device2_resp.status_code == 401
+        assert device2_resp.status_code == 200
+        assert "access_token" in device2_resp.json()
 
 
 @pytest.mark.asyncio

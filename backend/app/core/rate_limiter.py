@@ -1,5 +1,6 @@
 """Redis sliding-window rate limiter for brute-force prevention and API throttling."""
 
+import asyncio
 import logging
 import time
 
@@ -32,7 +33,13 @@ class RateLimitExceededException(DomainException):
 
 
 class SlidingWindowRateLimiter:
-    """Sliding-window counter implementation using Redis sorted sets (ZSET) with optional in-memory fail-closed fallback."""
+    """Sliding-window counter implementation using Redis sorted sets (ZSET).
+
+    Falls back to a bounded in-memory sliding cache during Redis outages. Note: The in-memory
+    fallback is process-local and provides bounded abuse mitigation during temporary distributed cache degradation.
+    """
+
+    MAX_MEMORY_CACHE_KEYS: int = 5000
 
     def __init__(
         self,
@@ -46,6 +53,27 @@ class SlidingWindowRateLimiter:
         self.window_seconds = window_seconds
         self.fail_closed = fail_closed
         self._memory_cache: dict[str, list[float]] = {}
+
+    def _prune_memory_cache(self, now: float) -> None:
+        """Evict expired timestamps and bound memory consumption to prevent unbounded leak."""
+        window_start = now - self.window_seconds
+        expired_keys = []
+        for k, timestamps in list(self._memory_cache.items()):
+            valid = [t for t in timestamps if t > window_start]
+            if not valid:
+                expired_keys.append(k)
+            else:
+                self._memory_cache[k] = valid
+
+        for k in expired_keys:
+            self._memory_cache.pop(k, None)
+
+        # Cap memory size if key space exceeds threshold
+        if len(self._memory_cache) > self.MAX_MEMORY_CACHE_KEYS:
+            overflow_count = len(self._memory_cache) - self.MAX_MEMORY_CACHE_KEYS
+            for _ in range(overflow_count):
+                if self._memory_cache:
+                    self._memory_cache.pop(next(iter(self._memory_cache)), None)
 
     async def is_rate_limited(
         self,
@@ -81,13 +109,14 @@ class SlidingWindowRateLimiter:
 
             return False, current_count, 0
 
-        except Exception as exc:
+        except (aioredis.RedisError, asyncio.TimeoutError, ConnectionError, OSError) as exc:
             if self.fail_closed:
                 logger.warning(
-                    "Redis rate limiter unavailable (%s); failing closed via in-memory sliding cache for %s",
+                    "Redis rate limiter unavailable (%s); failing closed via bounded in-memory sliding cache for %s",
                     exc,
                     key,
                 )
+                self._prune_memory_cache(now)
                 timestamps = [t for t in self._memory_cache.get(key, []) if t > window_start]
                 timestamps.append(now)
                 self._memory_cache[key] = timestamps
@@ -97,7 +126,7 @@ class SlidingWindowRateLimiter:
                     return True, current_count, retry_after
                 return False, current_count, 0
 
-            # Fallback gracefully if Redis is temporarily unreachable
+            # Fallback gracefully if Redis is temporarily unreachable for non-critical routes
             logger.warning("Redis rate limiter unavailable (%s); failing open for %s", exc, key)
             return False, 0, 0
 

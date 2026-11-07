@@ -74,53 +74,81 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
 
     // Do not attempt refresh on auth endpoints to prevent endless loops
     final isAuthEndpoint = path.contains('/auth/session') ||
+        path.contains('/auth/exchange') ||
         path.contains('/auth/firebase-exchange') ||
         path.contains('/auth/refresh') ||
-        path.contains('/auth/logout');
+        path.contains('/auth/logout') ||
+        path.contains('/auth/switch-role') ||
+        path.contains('/auth/2fa/');
 
-    if (response?.statusCode == 401 && !isAuthEndpoint && !_isRefreshing) {
-      _isRefreshing = true;
-      try {
-        final refreshToken = await storageService.getRefreshToken();
-        if (refreshToken != null && refreshToken.isNotEmpty) {
-          final refreshDio = Dio(
-            BaseOptions(
-              baseUrl: dio.options.baseUrl,
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 10),
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-              },
-            ),
-          );
-
-          final refreshResp = await refreshDio.post<Map<String, dynamic>>(
-            '/api/v1/auth/refresh',
-            data: {'refresh_token': refreshToken},
-          );
-
-          if (refreshResp.statusCode == 200 && refreshResp.data != null) {
-            final data = refreshResp.data!;
-            final newAccess = data['access_token'] as String;
-            final newRefresh = data['refresh_token'] as String;
-
-            await storageService.saveAccessToken(newAccess);
-            await storageService.saveRefreshToken(newRefresh);
-
-            final options = err.requestOptions;
-            options.headers['Authorization'] = 'Bearer $newAccess';
-
-            final retryResponse = await dio.fetch<dynamic>(options);
-            _isRefreshing = false;
-            return handler.resolve(retryResponse);
+    if (response?.statusCode == 401 && !isAuthEndpoint) {
+      // 1. Check if token was already refreshed by a concurrent request
+      final storedAccess = await storageService.getAccessToken();
+      final currentHeader = err.requestOptions.headers['Authorization'] as String?;
+      if (currentHeader != null &&
+          storedAccess != null &&
+          storedAccess.isNotEmpty &&
+          currentHeader != 'Bearer $storedAccess') {
+        final options = err.requestOptions;
+        if (options.baseUrl.isEmpty) {
+          options.baseUrl = dio.options.baseUrl;
+        }
+        options.headers['Authorization'] = 'Bearer $storedAccess';
+        try {
+          final retryResponse = await dio.fetch<dynamic>(options);
+          return handler.resolve(retryResponse);
+        } catch (retryErr) {
+          if (retryErr is DioException) {
+            return handler.next(retryErr);
           }
         }
-      } catch (refreshError) {
-        // Refresh token compromised, expired, or reuse detected: wipe tokens
-        await storageService.wipeAllOnLogout();
-      } finally {
-        _isRefreshing = false;
+      }
+
+      // 2. Perform coordinated refresh if not currently refreshing
+      if (!_isRefreshing) {
+        _isRefreshing = true;
+        try {
+          final refreshToken = await storageService.getRefreshToken();
+          if (refreshToken != null && refreshToken.isNotEmpty) {
+            final refreshDio = Dio(
+              BaseOptions(
+                baseUrl: dio.options.baseUrl,
+                connectTimeout: const Duration(seconds: 10),
+                receiveTimeout: const Duration(seconds: 10),
+                headers: {
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json',
+                },
+              ),
+            );
+
+            final refreshResp = await refreshDio.post<Map<String, dynamic>>(
+              '/api/v1/auth/refresh',
+              data: {'refresh_token': refreshToken},
+            );
+
+            if (refreshResp.statusCode == 200 && refreshResp.data != null) {
+              final data = refreshResp.data!;
+              final newAccess = data['access_token'] as String;
+              final newRefresh = data['refresh_token'] as String;
+
+              await storageService.saveAccessToken(newAccess);
+              await storageService.saveRefreshToken(newRefresh);
+
+              final options = err.requestOptions;
+              options.headers['Authorization'] = 'Bearer $newAccess';
+
+              final retryResponse = await dio.fetch<dynamic>(options);
+              _isRefreshing = false;
+              return handler.resolve(retryResponse);
+            }
+          }
+        } catch (refreshError) {
+          // Refresh token compromised, expired, or reuse detected: wipe tokens
+          await storageService.wipeAllOnLogout();
+        } finally {
+          _isRefreshing = false;
+        }
       }
     }
 

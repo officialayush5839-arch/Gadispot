@@ -1,10 +1,14 @@
 import hmac
 import secrets
+import base64
+import hashlib
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.core.config import get_settings
 from app.core.exceptions import UnauthorizedException
@@ -127,3 +131,30 @@ def verify_token_type(payload: dict[str, Any], expected_type: str) -> dict[str, 
             code="INVALID_TOKEN_TYPE",
         )
     return payload
+
+
+def get_totp_encryption_key() -> bytes:
+    """Derive 256-bit AES key from configured TOTP_ENCRYPTION_KEY or SECRET_KEY."""
+    settings = get_settings()
+    raw_key = getattr(settings, "TOTP_ENCRYPTION_KEY", None) or settings.SECRET_KEY
+    return hashlib.sha256(raw_key.encode("utf-8")).digest()
+
+
+def encrypt_totp_secret(secret: str) -> str:
+    """Encrypt a Base32 TOTP secret using AES-256-GCM with a random 12-byte nonce."""
+    key = get_totp_encryption_key()
+    aesgcm = AESGCM(key)
+    nonce = os.urandom(12)
+    ciphertext = aesgcm.encrypt(nonce, secret.encode("utf-8"), None)
+    return base64.b64encode(nonce + ciphertext).decode("utf-8")
+
+
+def decrypt_totp_secret(encrypted_b64: str) -> str:
+    """Decrypt an AES-256-GCM encrypted Base32 TOTP secret."""
+    key = get_totp_encryption_key()
+    aesgcm = AESGCM(key)
+    raw = base64.b64decode(encrypted_b64.encode("utf-8"))
+    nonce = raw[:12]
+    ciphertext = raw[12:]
+    decrypted_bytes = aesgcm.decrypt(nonce, ciphertext, None)
+    return decrypted_bytes.decode("utf-8")
