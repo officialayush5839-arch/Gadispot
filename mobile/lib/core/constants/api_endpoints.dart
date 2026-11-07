@@ -43,6 +43,14 @@ class ApiEndpoints {
   static const String accessManualAdmission = '$apiVersion/access/manual-admission';
   static const String accessScanLogs = '$apiVersion/access/logs';
 
+  // Payments & Checkout
+  static const String payments = '$apiVersion/payments';
+  static const String paymentProviders = '$apiVersion/payments/providers';
+  static String paymentDetail(String id) => '$apiVersion/payments/$id';
+  static String paymentDemoComplete(String id) => '$apiVersion/payments/$id/demo/complete';
+  static String paymentCancel(String id) => '$apiVersion/payments/$id/cancel';
+  static const String paymentSimulatePayout = '$apiVersion/payments/payouts/simulate';
+
   // Operations / Admin
   static const String adminPropertyQueue = '$apiVersion/admin/properties/queue';
   static String adminApproveProperty(String id) => '$apiVersion/admin/properties/$id/approve';

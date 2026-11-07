@@ -48,13 +48,25 @@ def test_settings_environment_flags():
     assert dev.is_production is False
     assert dev.is_testing is False
 
-    prod = Settings(ENVIRONMENT="production")
+    prod = Settings(
+        ENVIRONMENT="production", PAYMENT_MODE="razorpay", DEMO_PAYMENTS_ENABLED=False
+    )
     assert prod.is_production is True
     assert prod.is_testing is False
 
     test_env = Settings(ENVIRONMENT="test")
     assert test_env.is_production is False
     assert test_env.is_testing is True
+
+
+def test_production_demo_mode_safety_guard():
+    """Verify that enabling demo payment in production raises a strict ValidationError."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Settings(
+            ENVIRONMENT="production", PAYMENT_MODE="demo", DEMO_PAYMENTS_ENABLED=True
+        )
 
 
 def test_get_settings_cached_singleton():

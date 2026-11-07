@@ -5,12 +5,9 @@ import hmac
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
+
 import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import func, select
-
-
-from app.core.exceptions import ConflictException, ValidationException
+from app.core.exceptions import ConflictException
 from app.integrations.payments.cashfree_adapter import CashfreeAdapter
 from app.integrations.payments.hyperswitch_adapter import HyperswitchAdapter
 from app.integrations.payments.razorpay_adapter import RazorpayAdapter
@@ -21,26 +18,25 @@ from app.integrations.payments.upi_qr_service import (
 )
 from app.main import app
 from app.models.enums import (
-    PropertyTypeEnum,
     RefundStatusEnum,
     ReservationStatusEnum,
     ReservationTypeEnum,
     SpaceTypeEnum,
-    UserRoleEnum,
     VehicleCategoryEnum,
 )
 from app.models.parking import ParkingSpace
-from app.models.payments import PaymentWebhookEvent
-from app.models.properties import Property
 from app.models.reservations import SpaceReservation
-from app.models.users import User, UserRole, Vehicle
+from app.models.users import User, Vehicle
 from app.services.refund_service import RefundService
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture
 async def sample_reservation(db_session):
     """Fixture providing a persisted space reservation for payment tests."""
-    user = User(phone_number=f"+9199{uuid.uuid4().hex[:8]}", full_name="Payment Test Driver")
+    user = User(
+        phone_number=f"+9199{uuid.uuid4().hex[:8]}", full_name="Payment Test Driver"
+    )
     db_session.add(user)
     await db_session.flush()
 
@@ -53,6 +49,7 @@ async def sample_reservation(db_session):
 
     prop_id = uuid.uuid4()
     from sqlalchemy import text
+
     await db_session.execute(
         text("""
         INSERT INTO properties (id, owner_id, title, property_type, address_line, city, postal_code, location, is_active)
@@ -71,14 +68,16 @@ async def sample_reservation(db_session):
     db_session.add(space)
     await db_session.flush()
 
-
     now = datetime.now(timezone.utc)
     import asyncpg
+
     res = SpaceReservation(
         parking_space_id=space.id,
         driver_id=user.id,
         vehicle_id=vehicle.id,
-        time_window=asyncpg.Range(now, now + timedelta(hours=2), lower_inc=True, upper_inc=False),
+        time_window=asyncpg.Range(
+            now, now + timedelta(hours=2), lower_inc=True, upper_inc=False
+        ),
         reservation_type=ReservationTypeEnum.TEMPORARY_HOLD,
         status=ReservationStatusEnum.ACTIVE_HOLD,
         hold_expires_at=now + timedelta(seconds=480),
@@ -102,8 +101,8 @@ async def test_razorpay_adapter_order_and_signatures():
     # Verify payment signature
     order_id = "order_123456"
     payment_id = "pay_789012"
-    msg = f"{order_id}|{payment_id}".encode("utf-8")
-    sig = hmac.new("rzp_secret_123".encode("utf-8"), msg, hashlib.sha256).hexdigest()
+    msg = f"{order_id}|{payment_id}".encode()
+    sig = hmac.new(b"rzp_secret_123", msg, hashlib.sha256).hexdigest()
     assert adapter.verify_payment_signature(order_id, payment_id, sig) is True
     assert adapter.verify_payment_signature(order_id, payment_id, "forged_sig") is False
 
@@ -148,16 +147,22 @@ async def test_6_stage_refund_lifecycle_state_machine(db_session, sample_reserva
     res_id = sample_reservation.id
 
     # Stage 1 -> 2: NONE to REFUND_ELIGIBLE
-    res = await RefundService.mark_refund_eligible(db_session, res_id, "Driver cancelled")
+    res = await RefundService.mark_refund_eligible(
+        db_session, res_id, "Driver cancelled"
+    )
     assert res.refund_status == RefundStatusEnum.REFUND_ELIGIBLE
 
     # Stage 2 -> 3: REFUND_ELIGIBLE to REFUND_REQUESTED
-    res = await RefundService.request_refund(db_session, res_id, "Processing cancellation")
+    res = await RefundService.request_refund(
+        db_session, res_id, "Processing cancellation"
+    )
     assert res.refund_status == RefundStatusEnum.REFUND_REQUESTED
     assert res.refund_initiated_at is not None
 
     # Stage 3 -> 4: REFUND_REQUESTED to GATEWAY_ACCEPTED
-    res = await RefundService.record_gateway_acceptance(db_session, res_id, "rfnd_rzp_12345")
+    res = await RefundService.record_gateway_acceptance(
+        db_session, res_id, "rfnd_rzp_12345"
+    )
     assert res.refund_status == RefundStatusEnum.GATEWAY_ACCEPTED
     assert res.refund_gateway_id == "rfnd_rzp_12345"
 
@@ -193,7 +198,7 @@ async def test_webhook_idempotency_and_deduplication(db_session, sample_reservat
             },
         }
         body_bytes = json.dumps(payload).encode("utf-8")
-        sig = hmac.new("rzp_test_mock_secret".encode("utf-8"), body_bytes, hashlib.sha256).hexdigest()
+        sig = hmac.new(b"rzp_test_mock_secret", body_bytes, hashlib.sha256).hexdigest()
 
         headers = {
             "x-razorpay-signature": sig,
@@ -201,12 +206,16 @@ async def test_webhook_idempotency_and_deduplication(db_session, sample_reservat
         }
 
         # 1. First delivery -> processed
-        resp1 = await client.post("/api/v1/webhooks/razorpay", content=body_bytes, headers=headers)
+        resp1 = await client.post(
+            "/api/v1/webhooks/razorpay", content=body_bytes, headers=headers
+        )
         assert resp1.status_code == 200
         assert resp1.json()["status"] == "processed"
 
         # 2. Second delivery with exact same (gateway, event_id) -> idempotent already_processed
-        resp2 = await client.post("/api/v1/webhooks/razorpay", content=body_bytes, headers=headers)
+        resp2 = await client.post(
+            "/api/v1/webhooks/razorpay", content=body_bytes, headers=headers
+        )
         assert resp2.status_code == 200
         assert resp2.json()["status"] == "already_processed"
 
@@ -221,6 +230,8 @@ async def test_webhook_forged_signature_rejected():
             "x-razorpay-signature": "bad_signature_hash",
             "Content-Type": "application/json",
         }
-        resp = await client.post("/api/v1/webhooks/razorpay", json=payload, headers=headers)
+        resp = await client.post(
+            "/api/v1/webhooks/razorpay", json=payload, headers=headers
+        )
         assert resp.status_code == 401
         assert resp.json()["code"] == "INVALID_WEBHOOK_SIGNATURE"

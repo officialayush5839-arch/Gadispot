@@ -1,58 +1,237 @@
-"""Payment initiation, dynamic UPI QR generation, and refund management endpoints."""
+"""Payment initiation, dynamic UPI QR generation, simulation triggers, and refund management endpoints."""
 
+from typing import Any
 import uuid
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import get_current_user
+from app.core.config import settings
 from app.core.dependencies import get_db
 from app.core.exceptions import EntityNotFoundException, ValidationException
-from app.integrations.payments.cashfree_adapter import CashfreeAdapter
-from app.integrations.payments.hyperswitch_adapter import HyperswitchAdapter
-from app.integrations.payments.razorpay_adapter import RazorpayAdapter
+from app.integrations.payments.factory import PaymentGatewayFactory
 from app.integrations.payments.upi_qr_service import (
     build_upi_payment_uri,
     generate_upi_qr_base64,
 )
 from app.models.enums import RefundStatusEnum
 from app.models.reservations import SpaceReservation
+from app.models.users import User
 from app.schemas.payments import (
     CreateOrderRequest,
     CreateOrderResponse,
+    DemoCompleteRequest,
+    DemoCompleteResponse,
+    InitiatePaymentRequest,
+    InitiatePaymentResponse,
+    PaymentDetailResponse,
+    PayoutBatchResponse,
+    ProviderListResponse,
     RefundRequest,
     RefundResponse,
     UpiQrRequest,
     UpiQrResponse,
 )
+from app.services.payment_service import PaymentService
+from app.services.payout_service import PayoutService
 from app.services.refund_service import RefundService
 
 router = APIRouter()
 
-ADAPTERS = {
-    "razorpay": RazorpayAdapter(),
-    "cashfree": CashfreeAdapter(),
-    "hyperswitch": HyperswitchAdapter(),
-}
+
+@router.get(
+    "/providers",
+    response_model=ProviderListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List available payment gateways and active execution mode",
+)
+async def list_payment_providers() -> ProviderListResponse:
+    """Retrieve supported payment gateways and system operation flags."""
+    return ProviderListResponse(
+        active_mode=settings.PAYMENT_MODE,
+        demo_enabled=settings.DEMO_PAYMENTS_ENABLED,
+        supported_providers=PaymentGatewayFactory.get_supported_gateways(),
+    )
+
+
+@router.post(
+    "",
+    response_model=InitiatePaymentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Initiate payment checkout for an active reservation hold",
+)
+async def initiate_payment(
+    payload: InitiatePaymentRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> InitiatePaymentResponse:
+    """Create a verified payment intent, enforce pricing quote, and associate with reservation."""
+    res = await PaymentService.create_payment(
+        db=db,
+        reservation_id=payload.reservation_id,
+        driver_id=current_user.id,
+        gateway_name=payload.gateway,
+        idempotency_key=payload.idempotency_key,
+    )
+    payment = res["payment"]
+    return InitiatePaymentResponse(
+        payment_id=payment.id,
+        reservation_id=payment.reservation_id,
+        order_id=res["order_id"],
+        amount_paise=res["amount_paise"],
+        currency=res.get("currency", "INR"),
+        status=payment.status.value,
+        gateway=payload.gateway,
+        is_simulated=res["is_simulated"],
+        is_experimental=res.get("is_experimental", False),
+        quote=res.get("quote"),
+    )
+
+
+@router.post(
+    "/{payment_id}/demo/complete",
+    response_model=DemoCompleteResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Execute simulated payment outcome (Strictly disabled in production)",
+)
+async def complete_demo_payment(
+    payment_id: uuid.UUID,
+    payload: DemoCompleteRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> DemoCompleteResponse:
+    """Simulate a deterministic payment outcome for hackathon evaluation and local testing."""
+    res = await PaymentService.complete_demo_payment(
+        db=db,
+        payment_id=payment_id,
+        driver_id=current_user.id,
+        outcome=payload.outcome,
+        reason=payload.reason,
+    )
+    return DemoCompleteResponse(
+        payment_id=res["payment_id"],
+        reservation_id=res["reservation_id"],
+        status=res["status"],
+        is_simulated=res["is_simulated"],
+        provider_payment_id=res.get("provider_payment_id"),
+        failure_reason=res.get("failure_reason"),
+        message=res["message"],
+    )
+
+
+@router.get(
+    "/{payment_id}",
+    response_model=PaymentDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get payment details and status",
+)
+async def get_payment_details(
+    payment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PaymentDetailResponse:
+    """Inspect payment state, simulation flags, and gateway identifiers."""
+    payment = await PaymentService.get_payment(
+        db=db,
+        payment_id=payment_id,
+        user_id=current_user.id,
+    )
+    return PaymentDetailResponse(
+        id=payment.id,
+        reservation_id=payment.reservation_id,
+        driver_id=payment.driver_id,
+        amount_paise=payment.amount_paise,
+        currency=payment.currency,
+        provider=payment.provider.value,
+        provider_order_id=payment.provider_order_id,
+        provider_payment_id=payment.provider_payment_id,
+        status=payment.status.value,
+        is_simulated=payment.is_simulated,
+        is_experimental=payment.is_experimental,
+        experimental_status=payment.experimental_status,
+        idempotency_key=payment.idempotency_key,
+        simulation_scenario=payment.simulation_scenario,
+        failure_reason=payment.failure_reason,
+        created_at=payment.created_at,
+        updated_at=payment.updated_at,
+    )
+
+
+@router.post(
+    "/{payment_id}/cancel",
+    response_model=PaymentDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Cancel a pending payment intent",
+)
+async def cancel_payment(
+    payment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PaymentDetailResponse:
+    """Explicitly cancel a pending payment before checkout completion."""
+    payment = await PaymentService.cancel_payment(
+        db=db,
+        payment_id=payment_id,
+        user_id=current_user.id,
+    )
+    return PaymentDetailResponse(
+        id=payment.id,
+        reservation_id=payment.reservation_id,
+        driver_id=payment.driver_id,
+        amount_paise=payment.amount_paise,
+        currency=payment.currency,
+        provider=payment.provider.value,
+        provider_order_id=payment.provider_order_id,
+        provider_payment_id=payment.provider_payment_id,
+        status=payment.status.value,
+        is_simulated=payment.is_simulated,
+        is_experimental=payment.is_experimental,
+        experimental_status=payment.experimental_status,
+        idempotency_key=payment.idempotency_key,
+        simulation_scenario=payment.simulation_scenario,
+        failure_reason=payment.failure_reason,
+        created_at=payment.created_at,
+        updated_at=payment.updated_at,
+    )
+
+
+@router.post(
+    "/payouts/simulate",
+    response_model=PayoutBatchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Trigger simulated host earnings payout batch",
+)
+async def simulate_owner_payout(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PayoutBatchResponse:
+    """Disburse accumulated host liability balances (Account 2010) in demo mode."""
+    res = await PayoutService.simulate_owner_payout_batch(db=db)
+    return PayoutBatchResponse(
+        batch_id=res["batch_id"],
+        amount_paise=res["amount_paise"],
+        currency=res["currency"],
+        status=res["status"],
+        settled_at=res["settled_at"],
+        utr=res.get("utr"),
+        message=res["message"],
+    )
 
 
 @router.post(
     "/create-order",
     response_model=CreateOrderResponse,
     status_code=status.HTTP_200_OK,
-    summary="Create a payment intent order with selected gateway",
+    summary="Create a payment intent order with selected gateway (Legacy compatibility)",
 )
 async def create_payment_order(
     payload: CreateOrderRequest,
     db: AsyncSession = Depends(get_db),
 ) -> CreateOrderResponse:
     """Create an order with the selected runtime gateway adapter and associate with reservation."""
-    adapter = ADAPTERS.get(payload.gateway.lower())
-    if not adapter:
-        raise ValidationException(
-            detail=f"Unsupported gateway '{payload.gateway}'. Supported: {list(ADAPTERS.keys())}",
-            code="UNSUPPORTED_GATEWAY",
-        )
+    adapter = PaymentGatewayFactory.get_adapter(payload.gateway)
 
     # 1. Verify reservation exists
     stmt = select(SpaceReservation).where(SpaceReservation.id == payload.reservation_id).with_for_update()
@@ -135,7 +314,6 @@ async def request_refund(
     db: AsyncSession = Depends(get_db),
 ) -> RefundResponse:
     """Transition reservation into REFUND_REQUESTED and dispatch to gateway adapter."""
-    # 1. Ensure reservation exists
     stmt = select(SpaceReservation).where(SpaceReservation.id == payload.reservation_id).with_for_update()
     result = await db.execute(stmt)
     reservation = result.scalar_one_or_none()
@@ -145,24 +323,20 @@ async def request_refund(
             code="RESERVATION_NOT_FOUND",
         )
 
-    # 2. Advance through canonical state machine
     if reservation.refund_status == RefundStatusEnum.NONE:
         await RefundService.mark_refund_eligible(db, reservation.id, payload.reason)
 
     await RefundService.request_refund(db, reservation.id, payload.reason)
 
-    # 3. Dispatch to primary gateway adapter (Razorpay default)
-    adapter = ADAPTERS["razorpay"]
+    adapter = PaymentGatewayFactory.get_adapter("demo" if settings.DEMO_PAYMENTS_ENABLED else "razorpay")
     refund_res = await adapter.process_refund(
-        payment_id=reservation.payment_transaction_id or "pay_mock_default",
+        payment_id=reservation.payment_transaction_id or "pay_demo_default",
         amount_paise=payload.amount_paise or 10000,
         reason=payload.reason,
     )
 
-    # 4. Advance to GATEWAY_ACCEPTED
     await RefundService.record_gateway_acceptance(db, reservation.id, refund_res.refund_id)
 
-    # If gateway returned instantaneous settlement (or mock test UTR)
     if refund_res.arn_utr:
         await RefundService.record_refund_settled(db, reservation.id, refund_res.arn_utr, refund_res.refund_id)
 

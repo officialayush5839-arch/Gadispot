@@ -5,8 +5,7 @@ produce ZERO deadlocks (DeadlockDetectedError) under high concurrency without ex
 """
 
 import asyncio
-import pytest
-import asyncpg
+
 from asyncpg.exceptions import DeadlockDetectedError, RaiseError
 
 
@@ -143,7 +142,9 @@ async def test_concurrent_posting_and_line_mutation_zero_deadlocks(pg_pool):
     assert len(deadlock_errors) == 0, f"Deadlock occurred: {deadlock_errors}"
 
     # CRITICAL INVARIANT 2: Zero unexpected errors!
-    assert len(unexpected_errors) == 0, f"Unexpected errors detected: {unexpected_errors}"
+    assert len(unexpected_errors) == 0, (
+        f"Unexpected errors detected: {unexpected_errors}"
+    )
 
     # CRITICAL INVARIANT 3: Every worker finished with a known valid outcome
     assert len(worker_outcomes) == len(tasks), (
@@ -152,7 +153,9 @@ async def test_concurrent_posting_and_line_mutation_zero_deadlocks(pg_pool):
 
     # CRITICAL INVARIANT 4: Exactly one poster transitioned the journal to POSTED
     postings_completed = [
-        res for w_type, wid, res in worker_outcomes if w_type == "poster" and res == "POSTED"
+        res
+        for w_type, wid, res in worker_outcomes
+        if w_type == "poster" and res == "POSTED"
     ]
     assert len(postings_completed) == 1, (
         f"Expected exactly 1 POSTED transition, got {len(postings_completed)}: {worker_outcomes}"
@@ -239,6 +242,10 @@ async def test_cross_journal_line_movement_concurrency_zero_deadlocks(pg_pool):
     await asyncio.gather(*tasks)
 
     # CRITICAL INVARIANT: Zero deadlocks between opposing line moves
-    assert len(deadlock_errors) == 0, f"Deadlock occurred during cross-journal moves: {deadlock_errors}"
-    assert len(unexpected_errors) == 0, f"Unexpected error during cross-journal moves: {unexpected_errors}"
+    assert len(deadlock_errors) == 0, (
+        f"Deadlock occurred during cross-journal moves: {deadlock_errors}"
+    )
+    assert len(unexpected_errors) == 0, (
+        f"Unexpected error during cross-journal moves: {unexpected_errors}"
+    )
     assert len(worker_outcomes) == len(tasks)

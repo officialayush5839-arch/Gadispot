@@ -1,18 +1,17 @@
 """Tests for API health checks, readiness probes, middleware, and RFC 7807 errors."""
 
 import uuid
+
+import app.api.v1.endpoints.health as health_module
 import httpx
 import pytest
+from app.core.exceptions import (
+    ConflictException,
+    EntityNotFoundException,
+)
+from app.main import create_app
 from fastapi import APIRouter
 from pydantic import BaseModel
-
-from app.main import create_app
-from app.core.exceptions import (
-    EntityNotFoundException,
-    ConflictException,
-)
-import app.api.v1.endpoints.health as health_module
-
 
 # Sample router to verify exception handling on routes
 # Named 'sample_router' instead of 'test_router' to prevent pytest collection warnings
@@ -62,13 +61,16 @@ def app_instance():
 async def client(app_instance):
     """AsyncClient fixture with raise_app_exceptions=False to test 500 RFC 7807 responses."""
     transport = httpx.ASGITransport(app=app_instance, raise_app_exceptions=False)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as ac:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as ac:
         yield ac
 
 
 # -----------------------------------------------------------------------------
 # 1. Liveness & Readiness Probe Tests
 # -----------------------------------------------------------------------------
+
 
 async def test_liveness_probe_returns_alive(client):
     """GET /health/live must always return 200 OK and status ALIVE."""
@@ -92,6 +94,7 @@ async def test_readiness_probe_success(client):
 
 async def test_readiness_probe_database_failure(client, monkeypatch):
     """GET /health/ready returns 503 UNAVAILABLE when database is down."""
+
     async def mock_db_fail():
         return False
 
@@ -107,6 +110,7 @@ async def test_readiness_probe_database_failure(client, monkeypatch):
 
 async def test_readiness_probe_redis_failure(client, monkeypatch):
     """GET /health/ready returns 503 UNAVAILABLE when Redis is down."""
+
     async def mock_redis_fail(request):
         return False
 
@@ -135,6 +139,7 @@ async def test_api_v1_health_status(client):
 
 async def test_api_v1_health_degraded_when_subsystem_fails(client, monkeypatch):
     """GET /api/v1/health returns DEGRADED status when a dependency fails."""
+
     async def mock_db_fail():
         return False
 
@@ -150,6 +155,7 @@ async def test_api_v1_health_degraded_when_subsystem_fails(client, monkeypatch):
 # -----------------------------------------------------------------------------
 # 2. Middleware Tests (Request ID & CORS)
 # -----------------------------------------------------------------------------
+
 
 async def test_request_id_middleware_generates_uuid_when_omitted(client):
     """Responses must contain an X-Request-ID header even if client omitted one."""
@@ -177,12 +183,16 @@ async def test_cors_headers_present(client):
         headers={"Origin": "http://localhost:3000"},
     )
     assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") in ["*", "http://localhost:3000"]
+    assert response.headers.get("access-control-allow-origin") in [
+        "*",
+        "http://localhost:3000",
+    ]
 
 
 # -----------------------------------------------------------------------------
 # 3. RFC 7807 Problem Details Exception Handler Tests
 # -----------------------------------------------------------------------------
+
 
 async def test_rfc7807_not_found_exception(client):
     """EntityNotFoundException must produce RFC 7807 Problem Details JSON."""

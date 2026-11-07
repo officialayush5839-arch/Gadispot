@@ -87,3 +87,15 @@ class PaymentGatewayPort(ABC):
         notes: dict[str, Any] | None = None,
     ) -> RefundResult:
         """Initiate or check refund status at the payment gateway."""
+
+    async def get_payment_status(self, payment_id: str) -> dict[str, Any]:
+        """Query current status of a payment at the gateway."""
+        return {"payment_id": payment_id, "gateway": self.gateway_name, "status": "unknown"}
+
+    async def cancel_payment(self, payment_id: str) -> dict[str, Any]:
+        """Cancel a pending payment intent at the gateway."""
+        return {"payment_id": payment_id, "gateway": self.gateway_name, "status": "cancelled"}
+
+    async def health_check(self) -> bool:
+        """Verify gateway availability and reachability."""
+        return True

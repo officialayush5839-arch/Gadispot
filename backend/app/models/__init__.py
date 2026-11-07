@@ -8,6 +8,8 @@ from app.models.enums import (
     DocumentTypeEnum,
     EntrySideEnum,
     JournalStatusEnum,
+    PaymentProviderEnum,
+    PaymentStatusEnum,
     PropertyTypeEnum,
     RefundStatusEnum,
     ReservationStatusEnum,
@@ -20,7 +22,7 @@ from app.models.enums import (
 )
 from app.models.ledger import JournalEntry, JournalLine, LedgerAccount
 from app.models.parking import ParkingSpace
-from app.models.payments import OutboxEvent, PaymentWebhookEvent
+from app.models.payments import OutboxEvent, Payment, PaymentWebhookEvent
 from app.models.properties import OperatingSchedule, Property, PropertyAuthorization
 from app.models.reservations import SpaceReservation
 from app.models.users import User, UserRole, Vehicle
@@ -42,6 +44,8 @@ __all__ = [
     "AccountTypeEnum",
     "JournalStatusEnum",
     "EntrySideEnum",
+    "PaymentStatusEnum",
+    "PaymentProviderEnum",
     # Models
     "User",
     "UserRole",
@@ -57,5 +61,6 @@ __all__ = [
     "AccessCredential",
     "OfflineManualAdmission",
     "PaymentWebhookEvent",
+    "Payment",
     "OutboxEvent",
 ]

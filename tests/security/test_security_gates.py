@@ -8,35 +8,27 @@ Verifies platform security gates against active penetration attack vectors:
 5. SQL Injection Immunity: Parameterized queries neutralize malicious SQL injection payloads.
 """
 
-import hashlib
-import hmac
 import uuid
-from datetime import datetime, timezone, timedelta
-import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from datetime import datetime, timedelta, timezone
 
-from app.core.authorization import verify_resource_ownership, require_roles
-from app.core.exceptions import ForbiddenException, UnauthorizedException
-from app.core.security import create_access_token
+import pytest
+from app.core.authorization import verify_resource_ownership
+from app.core.exceptions import ForbiddenException
 from app.main import app
 from app.models.enums import (
-    ReservationStatusEnum,
-    ReservationTypeEnum,
     SpaceTypeEnum,
-    TokenTypeEnum,
     UserRoleEnum,
     VehicleCategoryEnum,
 )
 from app.models.parking import ParkingSpace
-from app.models.reservations import SpaceReservation
 from app.models.users import User, Vehicle
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 
 
 def test_idor_cross_tenant_ownership_shield():
     """Verify verify_resource_ownership rejects mismatched user ownership."""
     from unittest.mock import MagicMock
-    from app.models.enums import UserRoleEnum
 
     owner_a_id = uuid.uuid4()
     owner_b_id = uuid.uuid4()
@@ -99,7 +91,9 @@ async def test_webhook_signature_forgery_rejection():
 async def test_expired_hold_token_issuance_rejection(db_session):
     """Verify attempting to issue access passes for an expired hold fails."""
     # Seed an expired hold
-    user = User(phone_number=f"+9199{uuid.uuid4().hex[:8]}", full_name="Expired Hold User")
+    user = User(
+        phone_number=f"+9199{uuid.uuid4().hex[:8]}", full_name="Expired Hold User"
+    )
     db_session.add(user)
     await db_session.flush()
 
@@ -137,6 +131,7 @@ async def test_expired_hold_token_issuance_rejection(db_session):
     past_start = datetime.now(timezone.utc) - timedelta(hours=2)
     past_end = datetime.now(timezone.utc) - timedelta(hours=1)
     import asyncpg
+
     time_window = asyncpg.Range(past_start, past_end, lower_inc=True, upper_inc=False)
 
     await db_session.execute(
@@ -174,7 +169,7 @@ async def test_expired_hold_token_issuance_rejection(db_session):
 async def test_sql_injection_defense(db_session):
     """Verify malicious SQL injection strings in parameterized queries are neutralized."""
     sqli_payload = "'; DROP TABLE users; --"
-    
+
     # Query with parameterized binding
     result = await db_session.execute(
         text("SELECT * FROM users WHERE phone_number = :phone"),

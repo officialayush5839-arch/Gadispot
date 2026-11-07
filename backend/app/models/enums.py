@@ -114,3 +114,23 @@ class JournalStatusEnum(str, enum.Enum):
 class EntrySideEnum(str, enum.Enum):
     DEBIT = "DEBIT"
     CREDIT = "CREDIT"
+
+
+class PaymentStatusEnum(str, enum.Enum):
+    CREATED = "CREATED"
+    PENDING = "PENDING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
+    OBSERVED_SUCCESS = "OBSERVED_SUCCESS"
+    REQUIRES_RECONCILIATION = "REQUIRES_RECONCILIATION"
+    UNKNOWN = "UNKNOWN"
+
+
+class PaymentProviderEnum(str, enum.Enum):
+    DEMO = "DEMO"
+    RAZORPAY = "RAZORPAY"
+    CASHFREE = "CASHFREE"
+    HYPERSWITCH = "HYPERSWITCH"
+    YOUPI = "YOUPI"

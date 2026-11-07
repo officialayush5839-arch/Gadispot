@@ -1,33 +1,26 @@
 """Payment webhook ingestion endpoint with durable idempotency and signature verification."""
 
+from datetime import datetime, timezone
 import json
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.dependencies import get_db
 from app.core.exceptions import UnauthorizedException, ValidationException
-from app.integrations.payments.cashfree_adapter import CashfreeAdapter
-from app.integrations.payments.hyperswitch_adapter import HyperswitchAdapter
-from app.integrations.payments.razorpay_adapter import RazorpayAdapter
-from app.models.enums import ReservationStatusEnum
-from app.models.payments import PaymentWebhookEvent
+from app.integrations.payments.factory import PaymentGatewayFactory
+from app.models.enums import PaymentStatusEnum, ReservationStatusEnum
+from app.models.payments import Payment, PaymentWebhookEvent
 from app.models.reservations import SpaceReservation
 from app.services.refund_service import RefundService
 
 logger = logging.getLogger("gadispot.webhooks")
 
 router = APIRouter()
-
-ADAPTERS = {
-    "razorpay": RazorpayAdapter(),
-    "cashfree": CashfreeAdapter(),
-    "hyperswitch": HyperswitchAdapter(),
-}
 
 
 @router.post(
@@ -42,10 +35,11 @@ async def handle_payment_webhook(
 ) -> dict[str, Any]:
     """Ingest, verify, deduplicate, and process asynchronous payment gateway webhook events."""
     gateway_key = gateway.lower().strip()
-    adapter = ADAPTERS.get(gateway_key)
-    if not adapter:
+    try:
+        adapter = PaymentGatewayFactory.get_adapter(gateway_key)
+    except ValidationException:
         raise ValidationException(
-            detail=f"Unsupported payment gateway '{gateway}'. Supported: {list(ADAPTERS.keys())}",
+            detail=f"Unsupported payment gateway '{gateway}'. Supported: {PaymentGatewayFactory.get_supported_gateways()}",
             code="UNSUPPORTED_GATEWAY",
         )
 
@@ -56,7 +50,11 @@ async def handle_payment_webhook(
     # 2. Verify HMAC cryptographic signature
     # In test/dev environment, allow test header if no production secret is configured
     signature_valid = adapter.verify_webhook_signature(raw_body, headers_dict)
-    if not signature_valid and headers_dict.get("x-test-webhook-bypass") == "gadispot-test-secret":
+    if (
+        not signature_valid
+        and not settings.is_production
+        and headers_dict.get("x-test-webhook-bypass") == "gadispot-test-secret"
+    ):
         signature_valid = True
 
     if not signature_valid:
@@ -128,6 +126,14 @@ async def handle_payment_webhook(
             reservation.status = ReservationStatusEnum.CONFIRMED
             reservation.payment_transaction_id = event.payment_id
             logger.info("Reservation %s confirmed via webhook", reservation.id)
+
+        # Update payment table if exists
+        stmt_pay = select(Payment).where(Payment.provider_order_id == event.order_id).with_for_update()
+        pay_res = await db.execute(stmt_pay)
+        payment = pay_res.scalar_one_or_none()
+        if payment and payment.status != PaymentStatusEnum.SUCCEEDED:
+            payment.status = PaymentStatusEnum.SUCCEEDED
+            payment.provider_payment_id = event.payment_id
 
     elif event.is_refund_update and event.order_id:
         res_stmt = (

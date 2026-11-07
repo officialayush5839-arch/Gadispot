@@ -5,7 +5,8 @@ on (parking_space_id WITH =, time_window WITH &&) using canonical 14-table schem
 """
 
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from asyncpg.exceptions import ExclusionViolationError
 

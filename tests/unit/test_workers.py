@@ -2,13 +2,11 @@
 
 import uuid
 from datetime import datetime, timedelta, timezone
+
 import asyncpg
 import pytest
-from sqlalchemy import select, text
-
 from app.models.access import OfflineManualAdmission
 from app.models.enums import (
-    PropertyTypeEnum,
     ReservationStatusEnum,
     ReservationTypeEnum,
     SpaceTypeEnum,
@@ -22,12 +20,15 @@ from app.workers.hold_cleanup_worker import (
     sweep_expired_holds_for_space,
 )
 from app.workers.photo_purge_worker import purge_expired_gate_photos
+from sqlalchemy import text
 
 
 @pytest.fixture
 async def worker_test_space(db_session):
     """Fixture providing a parking space and driver for worker tests."""
-    user = User(phone_number=f"+9197{uuid.uuid4().hex[:8]}", full_name="Worker Test Driver")
+    user = User(
+        phone_number=f"+9197{uuid.uuid4().hex[:8]}", full_name="Worker Test Driver"
+    )
     db_session.add(user)
     await db_session.flush()
 
@@ -70,7 +71,9 @@ async def test_two_tier_hold_expiration_engine(db_session, worker_test_space):
         parking_space_id=space.id,
         driver_id=user.id,
         vehicle_id=vehicle.id,
-        time_window=asyncpg.Range(now, now + timedelta(hours=1), lower_inc=True, upper_inc=False),
+        time_window=asyncpg.Range(
+            now, now + timedelta(hours=1), lower_inc=True, upper_inc=False
+        ),
         reservation_type=ReservationTypeEnum.TEMPORARY_HOLD,
         status=ReservationStatusEnum.ACTIVE_HOLD,
         hold_expires_at=now + timedelta(seconds=400),
@@ -83,7 +86,12 @@ async def test_two_tier_hold_expiration_engine(db_session, worker_test_space):
         parking_space_id=space.id,
         driver_id=user.id,
         vehicle_id=vehicle.id,
-        time_window=asyncpg.Range(now + timedelta(hours=3), now + timedelta(hours=4), lower_inc=True, upper_inc=False),
+        time_window=asyncpg.Range(
+            now + timedelta(hours=3),
+            now + timedelta(hours=4),
+            lower_inc=True,
+            upper_inc=False,
+        ),
         reservation_type=ReservationTypeEnum.TEMPORARY_HOLD,
         status=ReservationStatusEnum.ACTIVE_HOLD,
         hold_expires_at=now - timedelta(seconds=10),
@@ -115,7 +123,9 @@ async def test_tier_2_inline_sweep_for_space(db_session, worker_test_space):
         parking_space_id=space.id,
         driver_id=user.id,
         vehicle_id=vehicle.id,
-        time_window=asyncpg.Range(now, now + timedelta(hours=2), lower_inc=True, upper_inc=False),
+        time_window=asyncpg.Range(
+            now, now + timedelta(hours=2), lower_inc=True, upper_inc=False
+        ),
         reservation_type=ReservationTypeEnum.TEMPORARY_HOLD,
         status=ReservationStatusEnum.ACTIVE_HOLD,
         hold_expires_at=now - timedelta(seconds=5),

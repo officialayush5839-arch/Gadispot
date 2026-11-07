@@ -1,10 +1,9 @@
 """Unit tests for CompatibilityService dimensional clearance and EV matching (TSK-P7-001)."""
 
-import pytest
 from app.services.compatibility_service import (
     CompatibilityService,
-    VehicleDimensions,
     SpaceDimensions,
+    VehicleDimensions,
 )
 
 
@@ -74,7 +73,9 @@ def test_ev_charging_requirement_enforcement():
     )
     res_no_ev = CompatibilityService.evaluate_compatibility(vehicle, space_no_ev)
     assert res_no_ev.is_compatible is False
-    assert "EV vehicle requires dedicated charging bay" in res_no_ev.rejection_reasons[0]
+    assert (
+        "EV vehicle requires dedicated charging bay" in res_no_ev.rejection_reasons[0]
+    )
 
     # EV space
     space_with_ev = SpaceDimensions(

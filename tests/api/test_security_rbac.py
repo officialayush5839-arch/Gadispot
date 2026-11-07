@@ -1,14 +1,11 @@
 """Automated tests for Phase 6: RBAC, IDOR Shield, Rate Limiting, and Audit Logging."""
 
 import uuid
-import pytest
-from httpx import ASGITransport, AsyncClient
 
+import pytest
 from app.core.authorization import require_roles, verify_resource_ownership
-from app.core.exceptions import ForbiddenException, UnauthorizedException
+from app.core.exceptions import ForbiddenException
 from app.core.rate_limiter import SlidingWindowRateLimiter
-from app.core.security import create_access_token
-from app.main import app
 from app.models.enums import UserRoleEnum
 from app.models.users import User, UserRole
 from app.services.audit_service import AuditService
@@ -22,7 +19,9 @@ async def test_rbac_and_idor_ownership_checks(db_session):
     ops_id = uuid.uuid4()
 
     # Create mock Driver user
-    driver_user = User(id=driver_id, phone_number="+919800000001", full_name="Driver User")
+    driver_user = User(
+        id=driver_id, phone_number="+919800000001", full_name="Driver User"
+    )
     driver_user.roles = [UserRole(user_id=driver_id, role=UserRoleEnum.DRIVER)]
 
     # Create mock Operations user
@@ -54,22 +53,29 @@ async def test_rbac_and_idor_ownership_checks(db_session):
 async def test_sliding_window_rate_limiter_logic():
     """Verify rate limiter sliding-window threshold evaluation using mock/active Redis."""
     from unittest.mock import AsyncMock, MagicMock
+
     mock_redis = AsyncMock()
-    
+
     # In redis.asyncio, pipeline() is a synchronous method returning the Pipeline instance
     mock_pipeline = MagicMock()
     mock_pipeline.execute = AsyncMock(return_value=[None, None, 2, True])
     mock_redis.pipeline = MagicMock(return_value=mock_pipeline)
 
-    limiter = SlidingWindowRateLimiter(key_prefix="test", max_requests=3, window_seconds=60)
-    is_limited, count, retry_after = await limiter.is_rate_limited("user_123", mock_redis)
+    limiter = SlidingWindowRateLimiter(
+        key_prefix="test", max_requests=3, window_seconds=60
+    )
+    is_limited, count, retry_after = await limiter.is_rate_limited(
+        "user_123", mock_redis
+    )
     assert is_limited is False
     assert count == 2
 
     # Simulate 4th request exceeding limit
     mock_pipeline.execute.return_value = [None, None, 4, True]
     mock_redis.zrange.return_value = [(b"entry", 1000.0)]
-    is_limited, count, retry_after = await limiter.is_rate_limited("user_123", mock_redis)
+    is_limited, count, retry_after = await limiter.is_rate_limited(
+        "user_123", mock_redis
+    )
     assert is_limited is True
     assert count == 4
     assert retry_after >= 0

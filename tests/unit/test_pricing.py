@@ -1,6 +1,5 @@
 """Unit tests for PricingService unit economics and financial reconciliation (TSK-P7-001)."""
 
-import pytest
 from app.services.pricing_service import PricingService
 
 
@@ -43,7 +42,13 @@ def test_standard_booking_quote_reconciliation():
     assert paise["platform_net_margin"] == 1983
     assert paise["gst_output_liability"] == 396
     assert paise["gateway_mdr"] == 217
-    assert paise["owner_net_entitlement"] + paise["platform_net_margin"] + paise["gst_output_liability"] + paise["gateway_mdr"] == 9180
+    assert (
+        paise["owner_net_entitlement"]
+        + paise["platform_net_margin"]
+        + paise["gst_output_liability"]
+        + paise["gateway_mdr"]
+        == 9180
+    )
 
 
 def test_custom_pricing_quote():

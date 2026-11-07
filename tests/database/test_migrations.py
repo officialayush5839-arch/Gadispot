@@ -1,22 +1,26 @@
 """Database migration, schema integrity, and constraint verification tests (TSK-P7-002)."""
 
 import pytest
-from sqlalchemy import text
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from sqlalchemy import text
 
 
 def test_alembic_script_directory_and_head_revisions():
     """Verify Alembic configuration and revision history chain."""
     alembic_cfg = Config("backend/alembic.ini")
     script = ScriptDirectory.from_config(alembic_cfg)
-    
+
     # Verify heads
     heads = script.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "002_audit_events"
+    assert heads[0] == "003_demo_payments"
 
-    # Verify revision chain: 002 -> 001 -> None
+    # Verify revision chain: 003 -> 002 -> 001 -> None
+    rev_003 = script.get_revision("003_demo_payments")
+    assert rev_003 is not None
+    assert rev_003.down_revision == "002_audit_events"
+
     rev_002 = script.get_revision("002_audit_events")
     assert rev_002 is not None
     assert rev_002.down_revision == "001_initial_schema"
@@ -46,6 +50,7 @@ async def test_canonical_tables_exist(db_session):
         "payment_webhook_events",
         "outbox_events",
         "audit_events",
+        "payments",
     }
 
     result = await db_session.execute(

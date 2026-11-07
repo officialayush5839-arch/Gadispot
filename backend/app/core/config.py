@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -67,12 +67,40 @@ class Settings(BaseSettings):
         description="Allowed CORS origins list or comma-separated string",
     )
 
+    # Payment Gateway Configuration
+    PAYMENT_MODE: str = Field(
+        default="demo",
+        description="Active payment gateway: demo, razorpay, cashfree, hyperswitch, youpi",
+    )
+    DEMO_PAYMENTS_ENABLED: bool = Field(
+        default=True,
+        description="Enable zero-cost simulated demo payment mode",
+    )
+    YOUPI_ENABLED: bool = Field(
+        default=False,
+        description="Enable experimental isolated YOUPI-PG adapter (opt-in)",
+    )
+    YOUPI_BASE_URL: str = Field(
+        default="",
+        description="Base URL for experimental YOUPI-PG service instance",
+    )
+    YOUPI_API_KEY: str = Field(
+        default="",
+        description="API key for YOUPI-PG instance",
+    )
+    YOUPI_WEBHOOK_SECRET: str = Field(
+        default="",
+        description="Cryptographic HMAC secret for YOUPI-PG webhooks",
+    )
+
     # External Provider Placeholders (Optional in development)
     FIREBASE_PROJECT_ID: str = ""
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
     CASHFREE_APP_ID: str = ""
     CASHFREE_SECRET_KEY: str = ""
+    CASHFREE_WEBHOOK_SECRET: str = ""
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -94,6 +122,17 @@ class Settings(BaseSettings):
             return [str(i).strip() for i in v if str(i).strip()]
         return ["*"]
 
+    @model_validator(mode="after")
+    def validate_payment_safety(self) -> "Settings":
+        """Strictly fail closed if demo mode is enabled in production."""
+        is_prod = self.ENVIRONMENT.lower() == "production"
+        if is_prod and (self.PAYMENT_MODE.lower() == "demo" or self.DEMO_PAYMENTS_ENABLED):
+            raise ValueError(
+                "CRITICAL SECURITY VIOLATION: PAYMENT_MODE=demo and DEMO_PAYMENTS_ENABLED=True "
+                "are strictly prohibited in production environments."
+            )
+        return self
+
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""
@@ -109,3 +148,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return cached application settings singleton."""
     return Settings()
+
+
+settings = get_settings()

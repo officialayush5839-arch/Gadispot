@@ -5,7 +5,6 @@ and fn_prevent_posted_journal_modification under canonical 14-table schema.
 """
 
 import pytest
-import asyncpg
 from asyncpg.exceptions import RaiseError
 
 
@@ -122,9 +121,7 @@ async def test_cannot_delete_posted_journal_entry(pg_pool):
         )
 
         with pytest.raises(RaiseError) as exc_info:
-            await conn.execute(
-                "DELETE FROM journal_entries WHERE id = $1", j_id
-            )
+            await conn.execute("DELETE FROM journal_entries WHERE id = $1", j_id)
 
         assert "Immutable Ledger Violation: Posted journal" in str(exc_info.value)
 

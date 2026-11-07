@@ -9,10 +9,11 @@ Verifies that:
 
 import asyncio
 import uuid
-from datetime import datetime, timezone, timedelta
-import pytest
+from datetime import datetime, timedelta, timezone
+
 import asyncpg
-from asyncpg.exceptions import ExclusionViolationError, DeadlockDetectedError
+import pytest
+from asyncpg.exceptions import DeadlockDetectedError, ExclusionViolationError
 
 
 @pytest.mark.asyncio

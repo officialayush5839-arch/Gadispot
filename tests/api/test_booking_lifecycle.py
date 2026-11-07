@@ -12,23 +12,21 @@ Exercises the complete user journey:
 """
 
 import uuid
-from datetime import datetime, timezone, timedelta
-import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text, select
+from datetime import datetime, timedelta, timezone
 
+import pytest
 from app.core.security import create_access_token
 from app.main import app
 from app.models.enums import (
     ReservationStatusEnum,
-    ReservationTypeEnum,
     SpaceTypeEnum,
-    UserRoleEnum,
     VehicleCategoryEnum,
 )
 from app.models.parking import ParkingSpace
 from app.models.reservations import SpaceReservation
 from app.models.users import User, Vehicle
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select, text
 
 
 @pytest.fixture
@@ -91,7 +89,9 @@ async def setup_lifecycle_entities(db_session):
 
 
 @pytest.mark.asyncio
-async def test_complete_booking_access_lifecycle_e2e(setup_lifecycle_entities, db_session):
+async def test_complete_booking_access_lifecycle_e2e(
+    setup_lifecycle_entities, db_session
+):
     """Execute complete 8-step lifecycle from hold to session completion."""
     entities = setup_lifecycle_entities
     driver = entities["driver"]
@@ -117,14 +117,18 @@ async def test_complete_booking_access_lifecycle_e2e(setup_lifecycle_entities, d
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
         }
-        resp = await client.post("/api/v1/bookings/hold", json=hold_payload, headers=headers)
+        resp = await client.post(
+            "/api/v1/bookings/hold", json=hold_payload, headers=headers
+        )
         assert resp.status_code == 201, resp.text
         hold_data = resp.json()
         reservation_id = hold_data["reservation_id"]
         assert hold_data["status"] == "ACTIVE_HOLD"
 
         # Step 2: Competing driver attempts overlapping hold on same space -> 409 Conflict
-        competing_resp = await client.post("/api/v1/bookings/hold", json=hold_payload, headers=headers)
+        competing_resp = await client.post(
+            "/api/v1/bookings/hold", json=hold_payload, headers=headers
+        )
         assert competing_resp.status_code == 409
         assert competing_resp.json()["code"] == "SLOT_ALREADY_RESERVED"
 
@@ -135,14 +139,18 @@ async def test_complete_booking_access_lifecycle_e2e(setup_lifecycle_entities, d
             "amount_paise": 9180,
             "currency": "INR",
         }
-        order_resp = await client.post("/api/v1/payments/create-order", json=order_payload)
+        order_resp = await client.post(
+            "/api/v1/payments/create-order", json=order_payload
+        )
         assert order_resp.status_code == 200, order_resp.text
         order_data = order_resp.json()
         assert order_data["gateway"] == "hyperswitch"
         assert order_data["amount_paise"] == 9180
 
         # Step 4: Simulate payment capture confirmation
-        res_stmt = select(SpaceReservation).where(SpaceReservation.id == uuid.UUID(reservation_id))
+        res_stmt = select(SpaceReservation).where(
+            SpaceReservation.id == uuid.UUID(reservation_id)
+        )
         res_result = await db_session.execute(res_stmt)
         res = res_result.scalar_one()
         res.status = ReservationStatusEnum.CONFIRMED

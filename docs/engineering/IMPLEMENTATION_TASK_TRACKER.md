@@ -19,13 +19,14 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 | **Phase 2** | FastAPI Backend Foundation | **COMPLETED** | 6 | 6 | 0 | Sprint 2 |
 | **Phase 3** | Flutter Mobile Application Foundation | **COMPLETED** | 6 | 6 | 0 | Sprint 3 |
 | **Phase 4** | Docker & Local Development Infrastructure | **COMPLETED** | 5 | 5 | 0 | Sprint 4 |
-| **Phase 5** | Open-Source Authentication & Payment Infrastructure | **PLANNED** | 7 | 0 | 7 | Sprint 5 |
-| **Phase 6** | Security, Background Jobs & Reliability | **PLANNED** | 6 | 0 | 6 | Sprint 6 |
-| **Phase 7** | Comprehensive Automated Testing Suite | **PLANNED** | 6 | 0 | 6 | Sprint 7 |
-| **Phase 8** | GitHub Actions CI/CD Pipeline Repair | **PLANNED** | 5 | 0 | 5 | Sprint 8 |
-| **Phase 9** | Documentation & Traceability Completion | **PLANNED** | 5 | 0 | 5 | Sprint 9 |
-| **Phase 10** | Implementation Readiness Gate Validation | **PLANNED** | 8 | 0 | 8 | Sprint 10 |
-| **TOTAL** | **All Phases (0 through 10)** | **5/11 (45%)** | **65** | **28** | **37** | **Phases 0–10** |
+| **Phase 5** | Open-Source Authentication & Payment Infrastructure | **COMPLETED** | 7 | 7 | 0 | Sprint 5 |
+| **Phase 6** | Security, Background Jobs & Reliability | **COMPLETED** | 6 | 6 | 0 | Sprint 6 |
+| **Phase 7** | Comprehensive Automated Testing Suite | **COMPLETED** | 6 | 6 | 0 | Sprint 7 |
+| **Phase 8** | GitHub Actions CI/CD Pipeline Repair | **COMPLETED** | 5 | 5 | 0 | Sprint 8 |
+| **Phase 9** | Documentation & Traceability Completion | **COMPLETED** | 5 | 5 | 0 | Sprint 9 |
+| **Phase 10** | Implementation Readiness Gate Validation | **COMPLETED** | 8 | 8 | 0 | Sprint 10 |
+| **Payment Demo** | Dual-Mode Demo Payment System (Mode A + Mode B) | **COMPLETED** | 6 | 6 | 0 | Hackathon Demo |
+| **TOTAL** | **All Phases (0 through 10 + Payment Demo)** | **12/12 (100%)** | **71** | **71** | **0** | **Complete** |
 
 ---
 
@@ -226,7 +227,25 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 
 ---
 
-## 13. Audit & Governance Signoff
+## 13. Dual-Mode Demo Payment System (Mode A + Mode B)
+
+**Goal:** Provide zero-cost deterministic simulated payments (Default Mode A) and an isolated, opt-in YOUPI-PG experimental boundary (Mode B) ensuring full booking confirmation, access pass issuance, double-entry ledger balance, simulated refunds, and owner payout batching without monetary overhead.  
+**Status:** **COMPLETED**  
+**Lead:** Payment Integration Specialist / Senior Backend Engineer  
+**Prerequisites:** Phase 5 and Phase 7 Completion  
+
+| Task ID | Task Title | Role | Status | Description | Deliverables | Verification Criteria |
+|---|---|---|:---:|---|---|---|
+| `TSK-PAY-001` | Demo Payment Schema & Migrations | Database Architect | **COMPLETED** | Define `Payment` model and enum types; generate and apply Alembic migration `003_demo_payments`. | `backend/alembic/versions/003_demo_payments.py`, `backend/app/models/payments.py`. | Migration upgrades cleanly; `payments` table and constraints verified in test DB. |
+| `TSK-PAY-002` | Deterministic Demo Payment Adapter | Payment Specialist | **COMPLETED** | Implement `DemoPaymentAdapter` supporting `SUCCESS`, `FAILURE`, `CANCEL`, `TIMEOUT` outcomes, webhook verification, and simulated refund settlement. | `backend/app/integrations/payments/demo_adapter.py`. | 100% pass on `tests/payments/test_demo_adapter.py`. |
+| `TSK-PAY-003` | Isolated YOUPI-PG Experimental Port | Payment Specialist | **COMPLETED** | Implement `YoupiPaymentAdapter` with fail-closed disabled default, zero unlicensed code vendoring, and non-settling observer status mapping. | `backend/app/integrations/payments/youpi_adapter.py`. | 100% pass on `tests/payments/test_youpi_adapter.py`. |
+| `TSK-PAY-004` | Payment & Payout Core Services | Senior Backend Engineer | **COMPLETED** | Implement `PaymentService` and `PayoutService` handling quotes, active hold locking, access credential minting, balanced double-entry ledger posting, and payout batches. | `backend/app/services/payment_service.py`, `backend/app/services/payout_service.py`. | 100% pass on `test_payment_service.py` and `test_payout_simulation.py`. |
+| `TSK-PAY-005` | Flutter Demo Payment UX & Anti-Slop Interface | Senior Flutter Engineer | **COMPLETED** | Implement `DemoPaymentView` in Flutter with mandatory non-monetary demo disclaimer banner, fee breakdown, and interactive scenario trigger buttons. | `mobile/lib/features/payments/presentation/demo_payment_view.dart`. | Spec validator passes; `demo_payment_view_test.dart` passes. |
+| `TSK-PAY-006` | Payment Test Suite & Concurrency Verification | QA Automation Engineer | **COMPLETED** | Author 16 automated tests covering unit adapter logic, IDOR shielding, production fail-closed guards, and concurrent payment completion idempotency. | `tests/payments/` suite. | All 16 payment tests execute and pass 100% green. |
+
+---
+
+## 14. Audit & Governance Signoff
 
 | Role | Name / Persona | Status | Date |
 |---|---|:---:|:---:|

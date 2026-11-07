@@ -6,10 +6,11 @@ using version-controlled Alembic migrations and session-scoped connection poolin
 
 import os
 import sys
-import pytest
+
 import asyncpg
-from alembic.config import Config
+import pytest
 from alembic import command
+from alembic.config import Config
 
 # Ensure backend root is on sys.path
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
@@ -93,6 +94,7 @@ async def clean_db(pg_pool):
 async def db_session(clean_db):
     """Async SQLAlchemy session fixture for ORM-based tests."""
     from app.db.session import async_session_factory
+
     async with async_session_factory() as session:
         try:
             yield session
@@ -102,4 +104,3 @@ async def db_session(clean_db):
             raise
         finally:
             await session.close()
-

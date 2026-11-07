@@ -1,11 +1,9 @@
 """Automated tests for Phase 5 authentication, JWT session management, and PyOTP 2FA."""
 
-import time
 import uuid
-import pytest
-from httpx import ASGITransport, AsyncClient
 
-from app.core.config import get_settings
+import pyotp
+import pytest
 from app.core.exceptions import UnauthorizedException
 from app.core.security import (
     create_access_token,
@@ -19,7 +17,7 @@ from app.services.auth_service import (
     get_totp_provisioning_uri,
     verify_totp_code,
 )
-import pyotp
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio
