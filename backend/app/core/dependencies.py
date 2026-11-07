@@ -16,6 +16,7 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import ForbiddenException, UnauthorizedException
 from app.core.security import decode_token, verify_token_type
 from app.db.session import async_session_factory
+from app.models.revoked_token import RevokedToken
 from app.models.session import UserSession
 from app.models.users import AccountStatus, User
 
@@ -129,25 +130,37 @@ async def get_current_user(
             redis_failed = True
 
     # Authoritative Database Fallback:
-    # If Redis is unavailable or failed, verify the session family's revocation state directly in PostgreSQL.
-    if redis_failed and family_id:
+    # If Redis is unavailable or failed, verify the token's individual JTI and session family revocation in PostgreSQL.
+    if redis_failed:
         try:
-            fam_uuid = uuid.UUID(family_id)
-            active_session_stmt = (
-                select(UserSession.id)
-                .where(
-                    UserSession.family_id == fam_uuid,
-                    UserSession.is_revoked.is_(False),
-                    UserSession.expires_at > datetime.now(timezone.utc),
+            # 1. Check individual JTI revocation in persistent table
+            if jti:
+                jti_stmt = select(RevokedToken.jti).where(RevokedToken.jti == jti).limit(1)
+                jti_res = await db.execute(jti_stmt)
+                if jti_res.scalar_one_or_none() is not None:
+                    raise UnauthorizedException(
+                        detail="Token has been revoked",
+                        code="TOKEN_REVOKED",
+                    )
+
+            # 2. Check session family revocation if family_id is present
+            if family_id:
+                fam_uuid = uuid.UUID(family_id)
+                active_session_stmt = (
+                    select(UserSession.id)
+                    .where(
+                        UserSession.family_id == fam_uuid,
+                        UserSession.is_revoked.is_(False),
+                        UserSession.expires_at > datetime.now(timezone.utc),
+                    )
+                    .limit(1)
                 )
-                .limit(1)
-            )
-            active_res = await db.execute(active_session_stmt)
-            if active_res.scalar_one_or_none() is None:
-                raise UnauthorizedException(
-                    detail="Token family has been revoked or expired.",
-                    code="TOKEN_REVOKED",
-                )
+                active_res = await db.execute(active_session_stmt)
+                if active_res.scalar_one_or_none() is None:
+                    raise UnauthorizedException(
+                        detail="Token family has been revoked or expired.",
+                        code="TOKEN_REVOKED",
+                    )
         except UnauthorizedException:
             raise
         except Exception as db_exc:

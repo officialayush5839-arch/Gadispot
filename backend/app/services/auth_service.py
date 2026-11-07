@@ -22,10 +22,12 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    decrypt_totp_secret,
     verify_token_type,
 )
 from app.integrations.firebase import init_firebase, verify_firebase_id_token
 from app.models.enums import UserRoleEnum
+from app.models.revoked_token import RevokedToken
 from app.models.session import UserSession
 from app.models.users import AccountStatus, User, UserRole
 from app.services.audit_service import AuditService
@@ -86,7 +88,16 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "payments:refund:request",
     ],
     "ADMIN": [
-        "*",
+        "admin:properties:queue",
+        "admin:properties:approve",
+        "admin:properties:reject",
+        "admin:payouts:batch",
+        "admin:audit:read",
+        "admin:users:manage",
+        "admin:system:configure",
+        "bookings:read",
+        "payments:refund:request",
+        "spaces:search",
     ],
 }
 
@@ -96,8 +107,6 @@ def get_permissions_for_roles(roles: list[str]) -> list[str]:
     perms: set[str] = set()
     for role in roles:
         role_key = role.strip().upper()
-        if role_key == "ADMIN":
-            return ["*"]
         for p in ROLE_PERMISSIONS.get(role_key, []):
             perms.add(p)
     return sorted(perms)
@@ -108,6 +117,7 @@ async def exchange_firebase_token_for_session(
     id_token: str,
     ip_address: str | None = None,
     device_info: str | None = None,
+    totp_code: str | None = None,
 ) -> dict[str, Any]:
     """Exchange a verified Firebase token for an internal scoped JWT session with race-free user provisioning and session tracking."""
     settings = get_settings()
@@ -205,6 +215,39 @@ async def exchange_firebase_token_for_session(
             code="ACCOUNT_DEACTIVATED",
         )
 
+    # 4b. Enforce Two-Factor Authentication (TOTP) if enrolled
+    if getattr(user, "totp_enabled", False):
+        if not totp_code:
+            mfa_token = create_access_token(
+                subject=str(user.id),
+                claims={"type": "mfa_challenge", "phone_number": user.phone_number},
+                expires_delta=timedelta(minutes=5),
+            )
+            raise ForbiddenException(
+                detail="Two-factor authentication required. Please verify with your 6-digit TOTP code.",
+                title="MFA Required",
+                code="MFA_REQUIRED",
+                extra={"mfa_token": mfa_token, "mfa_required": True, "expires_in": 300},
+            )
+
+        if not user.totp_secret_encrypted:
+            raise UnauthorizedException(
+                detail="Account configuration error: TOTP is enabled but no secret is enrolled.",
+                code="TOTP_CONFIG_ERROR",
+            )
+        try:
+            authoritative_secret = decrypt_totp_secret(user.totp_secret_encrypted)
+        except Exception:
+            raise UnauthorizedException(
+                detail="Failed to decrypt enrolled TOTP credentials.",
+                code="TOTP_DECRYPT_ERROR",
+            )
+        if not verify_totp_code(authoritative_secret, totp_code):
+            raise UnauthorizedException(
+                detail="Invalid two-factor authentication code.",
+                code="INVALID_TOTP_CODE",
+            )
+
     # 5. Extract roles
     role_names: list[str] = [r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles]
     if not role_names:
@@ -272,6 +315,114 @@ async def exchange_firebase_token_for_session(
     }
 
 
+async def verify_mfa_challenge(
+    db: AsyncSession,
+    mfa_token: str,
+    totp_code: str,
+    ip_address: str | None = None,
+    device_info: str | None = None,
+) -> dict[str, Any]:
+    """Verify MFA challenge token and TOTP code to establish an authenticated session."""
+    settings = get_settings()
+    claims = decode_token(mfa_token)
+    if claims.get("type") != "mfa_challenge":
+        raise UnauthorizedException(
+            detail="Invalid challenge token",
+            code="INVALID_CHALLENGE_TOKEN",
+        )
+
+    user_id_str = claims.get("sub")
+    if not user_id_str:
+        raise UnauthorizedException(
+            detail="Malformed challenge token",
+            code="INVALID_CHALLENGE_TOKEN",
+        )
+
+    user_uuid = uuid.UUID(user_id_str)
+    stmt = select(User).where(User.id == user_uuid).options(selectinload(User.roles))
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if not user:
+        raise UnauthorizedException(detail="User no longer exists", code="USER_NOT_FOUND")
+
+    if not user.totp_enabled or not user.totp_secret_encrypted:
+        raise UnauthorizedException(
+            detail="TOTP is not configured for this user",
+            code="TOTP_NOT_CONFIGURED",
+        )
+
+    try:
+        authoritative_secret = decrypt_totp_secret(user.totp_secret_encrypted)
+    except Exception:
+        raise UnauthorizedException(
+            detail="Failed to decrypt TOTP credentials",
+            code="TOTP_DECRYPT_ERROR",
+        )
+
+    if not verify_totp_code(authoritative_secret, totp_code):
+        raise UnauthorizedException(
+            detail="Invalid two-factor authentication code.",
+            code="INVALID_TOTP_CODE",
+        )
+
+    # Enforce account lifecycle & status
+    if hasattr(user, "status"):
+        if user.status == AccountStatus.SUSPENDED:
+            raise ForbiddenException(detail="Account has been suspended", code="ACCOUNT_SUSPENDED")
+        if user.status == AccountStatus.DISABLED:
+            raise ForbiddenException(detail="Account is disabled", code="ACCOUNT_DISABLED")
+    if not user.is_active:
+        raise ForbiddenException(detail="Account is disabled", code="ACCOUNT_DEACTIVATED")
+
+    role_names: list[str] = [r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles]
+    if not role_names:
+        role_names = [UserRoleEnum.DRIVER.value]
+
+    family_id = uuid.uuid4()
+    token_claims = {
+        "phone_number": user.phone_number,
+        "roles": role_names,
+        "verified": True,
+        "family_id": str(family_id),
+    }
+    access_token = create_access_token(subject=str(user.id), claims=token_claims)
+    refresh_token = create_refresh_token(
+        subject=str(user.id),
+        claims={"roles": role_names, "family_id": str(family_id)},
+    )
+    token_hash = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
+    refresh_expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    session_rec = UserSession(
+        user_id=user.id,
+        refresh_token_hash=token_hash,
+        family_id=family_id,
+        device_info=device_info,
+        ip_address=ip_address,
+        is_revoked=False,
+        expires_at=refresh_expires_at,
+    )
+    db.add(session_rec)
+    await db.flush()
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": {
+            "id": user.id,
+            "phone_number": user.phone_number,
+            "full_name": user.full_name,
+            "email": user.email,
+            "roles": role_names,
+            "is_active": user.is_active,
+            "status": user.status.value if hasattr(user.status, "value") else str(user.status),
+            "firebase_uid": user.firebase_uid,
+            "permissions": get_permissions_for_roles(role_names),
+        },
+    }
+
+
 async def refresh_session_tokens(
     db: AsyncSession,
     refresh_token: str,
@@ -316,10 +467,38 @@ async def refresh_session_tokens(
     if not session_rec:
         raise UnauthorizedException(detail="Invalid or unrecognized refresh token", code="INVALID_TOKEN")
 
-    # 4. Token Reuse Detection
+    # 4. Token Reuse Detection & Concurrency Grace Period (OAuth 2.0 BCP §4.14.2)
     if session_rec.is_revoked or session_rec.revoked_at is not None:
         now = datetime.now(timezone.utc)
-        # REUSE DETECTED: Revoke active sessions strictly belonging to this compromised family_id
+        elapsed_seconds = (now - (session_rec.revoked_at or now)).total_seconds()
+
+        # Check if rotated within legitimate concurrent rotation grace period
+        if elapsed_seconds <= settings.REFRESH_ROTATION_GRACE_PERIOD_SECONDS and session_rec.family_id:
+            succ_stmt = (
+                select(UserSession)
+                .where(
+                    UserSession.family_id == session_rec.family_id,
+                    UserSession.is_revoked.is_(False),
+                    UserSession.expires_at > now,
+                )
+                .order_by(UserSession.created_at.desc())
+                .limit(1)
+            )
+            succ_res = await db.execute(succ_stmt)
+            active_successor = succ_res.scalar_one_or_none()
+            if active_successor:
+                logger.info(
+                    "Concurrent refresh request detected for token %s within grace window (%.2fs); family preserved",
+                    token_hash[:16],
+                    elapsed_seconds,
+                )
+                raise ConflictException(
+                    detail="This refresh token was recently rotated by a concurrent request. Please use the newly issued credentials.",
+                    title="Token Recently Rotated",
+                    code="TOKEN_ALREADY_ROTATED",
+                )
+
+        # REUSE DETECTED OUTSIDE GRACE PERIOD: Revoke active sessions strictly belonging to this compromised family_id
         if session_rec.family_id:
             await db.execute(
                 update(UserSession)
@@ -492,6 +671,17 @@ async def logout_user_session(
             await redis.set(f"jwt:blocklist:{access_token_jti}", "1", ex=access_token_ttl)
         except aioredis.RedisError:
             pass
+
+    # 3. Persist revoked JTI into PostgreSQL for authoritative fallback during Redis failure
+    if access_token_jti:
+        expires_at = now + timedelta(seconds=access_token_ttl)
+        revoked_rec = RevokedToken(
+            jti=access_token_jti,
+            user_id=user.id,
+            expires_at=expires_at,
+            revoked_at=now,
+        )
+        db.add(revoked_rec)
 
     await db.flush()
 

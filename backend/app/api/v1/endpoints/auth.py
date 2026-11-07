@@ -12,15 +12,18 @@ from app.core.rate_limiter import (
 )
 from app.core.security import decode_token, decrypt_totp_secret, encrypt_totp_secret
 from app.models.users import User
+from app.core.exceptions import ForbiddenException, UnauthorizedException
 from app.schemas.auth import (
     FirebaseExchangeRequest,
     FirebaseSessionRequest,
     LogoutRequest,
     LogoutResponse,
+    MfaChallengeRequest,
     RefreshTokenRequest,
     SwitchRoleRequest,
     SwitchRoleResponse,
     TokenResponse,
+    TotpSetupRequest,
     TotpSetupResponse,
     TotpVerifyRequest,
     TotpVerifyResponse,
@@ -36,6 +39,7 @@ from app.services.auth_service import (
     logout_user_session,
     refresh_session_tokens,
     switch_user_role,
+    verify_mfa_challenge,
     verify_totp_code,
 )
 
@@ -96,12 +100,38 @@ async def exchange_token(
         id_token=payload.id_token,
         ip_address=ip_addr,
         device_info=device_info,
+        totp_code=payload.totp_code,
     )
     return TokenResponse(**session_data)
 
 
 # Backward-compatible function alias for existing internal references
 create_session = exchange_token
+
+
+@router.post(
+    "/2fa/challenge",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Complete two-factor authentication challenge to issue session tokens",
+    dependencies=[Depends(totp_rate_limiter.as_dependency())],
+)
+async def challenge_totp(
+    payload: MfaChallengeRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Verify MFA challenge token and TOTP code to establish an authenticated session."""
+    ip_addr = request.client.host if request.client else None
+    device_info = payload.device_info or request.headers.get("User-Agent")
+    session_data = await verify_mfa_challenge(
+        db=db,
+        mfa_token=payload.mfa_token,
+        totp_code=payload.totp_code,
+        ip_address=ip_addr,
+        device_info=device_info,
+    )
+    return TokenResponse(**session_data)
 
 
 @router.post(
@@ -243,24 +273,49 @@ async def switch_active_role(
     "/2fa/setup",
     response_model=TotpSetupResponse,
     status_code=status.HTTP_200_OK,
-    summary="Initialize RFC 6238 TOTP 2FA for authenticated principal",
+    summary="Initialize or re-enroll RFC 6238 TOTP 2FA for authenticated principal",
 )
 async def setup_totp_2fa(
+    payload: TotpSetupRequest | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TotpSetupResponse:
     """Generate high-entropy Base32 secret, persist encrypted in database, and return provisioning QR code."""
-    from datetime import datetime, timezone
-
     secret = generate_totp_secret()
     label = current_user.email or current_user.phone_number
     uri = get_totp_provisioning_uri(secret, label)
     qr_b64 = generate_totp_qr_base64(uri)
 
-    # Persist encrypted secret bound to caller (pending verification)
-    current_user.totp_secret_encrypted = encrypt_totp_secret(secret)
-    current_user.totp_enabled = False
-    current_user.totp_verified_at = None
+    # Protect re-enrollment: if 2FA is already active, require current 2FA code verification
+    # and store new secret in totp_pending_secret_encrypted without disabling active 2FA!
+    if getattr(current_user, "totp_enabled", False):
+        current_code = payload.current_totp_code if payload else None
+        if not current_code:
+            raise ForbiddenException(
+                detail="Valid current 2FA verification code required to authorize re-enrollment.",
+                code="MFA_VERIFICATION_REQUIRED",
+            )
+        try:
+            curr_secret = decrypt_totp_secret(current_user.totp_secret_encrypted)
+        except Exception:
+            raise UnauthorizedException(
+                detail="Failed to decrypt enrolled TOTP credentials.",
+                code="TOTP_DECRYPT_ERROR",
+            )
+        if not verify_totp_code(curr_secret, current_code):
+            raise UnauthorizedException(
+                detail="Current two-factor authentication code is invalid.",
+                code="INVALID_TOTP_CODE",
+            )
+
+        # Store in pending column; active factor remains enabled and untouched!
+        current_user.totp_pending_secret_encrypted = encrypt_totp_secret(secret)
+    else:
+        # Initial enrollment: store pending initial secret
+        current_user.totp_secret_encrypted = encrypt_totp_secret(secret)
+        current_user.totp_enabled = False
+        current_user.totp_verified_at = None
+
     await db.flush()
 
     return TotpSetupResponse(
@@ -285,14 +340,20 @@ async def verify_totp(
     """Verify code strictly against the caller's account-persisted encrypted secret. Activates 2FA upon success."""
     from datetime import datetime, timezone
 
-    if not current_user.totp_secret_encrypted:
+    # Determine whether verifying re-enrollment or initial setup
+    is_re_enrollment = bool(getattr(current_user, "totp_pending_secret_encrypted", None))
+    secret_encrypted = (
+        current_user.totp_pending_secret_encrypted if is_re_enrollment else current_user.totp_secret_encrypted
+    )
+
+    if not secret_encrypted:
         return TotpVerifyResponse(
             valid=False,
             message="TOTP 2FA enrollment has not been initialized. Please call /2fa/setup first.",
         )
 
     try:
-        authoritative_secret = decrypt_totp_secret(current_user.totp_secret_encrypted)
+        authoritative_secret = decrypt_totp_secret(secret_encrypted)
     except Exception:
         return TotpVerifyResponse(
             valid=False,
@@ -301,6 +362,9 @@ async def verify_totp(
 
     is_valid = verify_totp_code(authoritative_secret, payload.code)
     if is_valid:
+        if is_re_enrollment:
+            current_user.totp_secret_encrypted = current_user.totp_pending_secret_encrypted
+            current_user.totp_pending_secret_encrypted = None
         current_user.totp_enabled = True
         current_user.totp_verified_at = datetime.now(timezone.utc)
         await db.flush()

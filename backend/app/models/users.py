@@ -46,7 +46,8 @@ class User(Base):
         index=True,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    totp_secret_encrypted: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    totp_secret_encrypted: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    totp_pending_secret_encrypted: Mapped[str | None] = mapped_column(String(512), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     totp_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

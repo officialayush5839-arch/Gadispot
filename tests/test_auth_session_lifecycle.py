@@ -21,7 +21,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 
-def make_headers(token: str | None = None, extra: dict[str, str] | None = None) -> dict[str, str]:
+def make_headers(
+    token: str | None = None, extra: dict[str, str] | None = None
+) -> dict[str, str]:
     """Generate request headers with unique client IP to test auth flows cleanly."""
     ip = f"10.{uuid.uuid4().int % 200 + 1}.{uuid.uuid4().int % 200 + 1}.{uuid.uuid4().int % 200 + 1}"
     headers = {"X-Forwarded-For": ip, "User-Agent": "TestClient/1.0"}
@@ -44,7 +46,9 @@ async def test_phone_auth_exchange_contract_and_aliases(db_session):
             "fcm_token": "fcm_device_token_xyz_123",
             "device_info": "Google Pixel 8 Pro / Android 14",
         }
-        resp_1 = await client.post("/api/v1/auth/exchange", json=payload_1, headers=make_headers())
+        resp_1 = await client.post(
+            "/api/v1/auth/exchange", json=payload_1, headers=make_headers()
+        )
         assert resp_1.status_code == 200, resp_1.text
         data_1 = resp_1.json()
         assert "access_token" in data_1
@@ -60,8 +64,12 @@ async def test_phone_auth_exchange_contract_and_aliases(db_session):
         assert "bookings:hold" in user_1["permissions"]
 
         # Verify session persisted in DB with SHA-256 hash
-        expected_hash = hashlib.sha256(data_1["refresh_token"].encode("utf-8")).hexdigest()
-        stmt = select(UserSession).where(UserSession.refresh_token_hash == expected_hash)
+        expected_hash = hashlib.sha256(
+            data_1["refresh_token"].encode("utf-8")
+        ).hexdigest()
+        stmt = select(UserSession).where(
+            UserSession.refresh_token_hash == expected_hash
+        )
         session_rec = (await db_session.execute(stmt)).scalar_one_or_none()
         assert session_rec is not None
         assert session_rec.is_revoked is False
@@ -225,7 +233,19 @@ async def test_refresh_token_reuse_detection_revokes_all_sessions(db_session):
         active_sessions = (await db_session.execute(active_stmt)).scalars().all()
         assert len(active_sessions) == 2
 
-        # Step 4: ATTACK / REPLAY: An attacker replays refresh_token_1 (already rotated)
+        # Step 4: ATTACK / REPLAY: An attacker replays refresh_token_1 outside grace window
+        import hashlib
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import update
+
+        h1 = hashlib.sha256(refresh_token_1.encode()).hexdigest()
+        await db_session.execute(
+            update(UserSession)
+            .where(UserSession.refresh_token_hash == h1)
+            .values(revoked_at=datetime.now(timezone.utc) - timedelta(seconds=15))
+        )
+        await db_session.commit()
+
         replay_resp = await client.post(
             "/api/v1/auth/refresh",
             json={"refresh_token": refresh_token_1},
@@ -234,7 +254,9 @@ async def test_refresh_token_reuse_detection_revokes_all_sessions(db_session):
         assert replay_resp.status_code == 401
         problem = replay_resp.json()
         assert problem["code"] == "TOKEN_REVOKED"
-        assert problem["detail"] == "Refresh token reuse detected; session family revoked"
+        assert (
+            problem["detail"] == "Refresh token reuse detected; session family revoked"
+        )
 
         # Step 5: Verify that the compromised session family was revoked
         db_session.expire_all()
@@ -338,7 +360,9 @@ async def test_session_logout_via_header_refresh_token(db_session):
 
         logout_resp = await client.post(
             "/api/v1/auth/logout",
-            headers=make_headers(token=access_token, extra={"X-Refresh-Token": refresh_token}),
+            headers=make_headers(
+                token=access_token, extra={"X-Refresh-Token": refresh_token}
+            ),
         )
         assert logout_resp.status_code == 200
 
@@ -426,7 +450,9 @@ async def test_user_session_db_integrity_never_stores_plaintext(db_session):
         expected_hash = hashlib.sha256(raw_refresh.encode("utf-8")).hexdigest()
 
         # Query session row
-        stmt = select(UserSession).where(UserSession.refresh_token_hash == expected_hash)
+        stmt = select(UserSession).where(
+            UserSession.refresh_token_hash == expected_hash
+        )
         sess = (await db_session.execute(stmt)).scalar_one()
 
         # Plaintext token must not match the stored hash

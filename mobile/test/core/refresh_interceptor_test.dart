@@ -106,6 +106,48 @@ void main() {
       expect(await storage.getAccessToken(), isNull);
       expect(await storage.getRefreshToken(), isNull);
     });
+
+    test('concurrent 401s coordinate on shared refresh completer', () async {
+      await storage.saveAccessToken('expired_access_token');
+      await storage.saveRefreshToken('invalid_refresh_token');
+
+      final req1 = RequestOptions(
+        baseUrl: 'http://testserver',
+        path: '/api/v1/spaces/search',
+        headers: {'Authorization': 'Bearer expired_access_token'},
+      );
+      final req2 = RequestOptions(
+        baseUrl: 'http://testserver',
+        path: '/api/v1/bookings',
+        headers: {'Authorization': 'Bearer expired_access_token'},
+      );
+
+      final dioErr1 = DioException(
+        requestOptions: req1,
+        response: Response(requestOptions: req1, statusCode: 401),
+        type: DioExceptionType.badResponse,
+      );
+      final dioErr2 = DioException(
+        requestOptions: req2,
+        response: Response(requestOptions: req2, statusCode: 401),
+        type: DioExceptionType.badResponse,
+      );
+
+      final handler1 = TestErrorInterceptorHandler();
+      final handler2 = TestErrorInterceptorHandler();
+
+      // Launch both concurrently
+      await Future.wait([
+        interceptor.onError(dioErr1, handler1),
+        interceptor.onError(dioErr2, handler2),
+      ]);
+
+      // Both should have cleanly handled the failure without throwing or hanging
+      expect(handler1.passedError, equals(dioErr1));
+      expect(handler2.passedError, equals(dioErr2));
+      expect(await storage.getAccessToken(), isNull);
+      expect(await storage.getRefreshToken(), isNull);
+    });
   });
 }
 

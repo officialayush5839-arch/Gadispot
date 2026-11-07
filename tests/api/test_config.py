@@ -87,4 +87,3 @@ def test_get_settings_cached_singleton():
     s1 = get_settings()
     s2 = get_settings()
     assert s1 is s2
-

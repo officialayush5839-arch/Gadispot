@@ -271,7 +271,9 @@ async def test_api_account_status_rfc7807_responses(db_session):
     """Verify FastAPI /api/v1/auth/session endpoint returns RFC 7807 problem details for non-active users."""
     transport = ASGITransport(app=app)
     ip_suffix = uuid.uuid4().hex[:6]
-    headers = {"X-Forwarded-For": f"10.200.{int(ip_suffix[:2], 16)}.{int(ip_suffix[2:4], 16)}"}
+    headers = {
+        "X-Forwarded-For": f"10.200.{int(ip_suffix[:2], 16)}.{int(ip_suffix[2:4], 16)}"
+    }
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         phone = f"+9198{uuid.uuid4().hex[:8]}"
 

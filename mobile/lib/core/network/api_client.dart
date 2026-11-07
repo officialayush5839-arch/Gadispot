@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:dio/dio.dart';
 import '../config/env.dart';
@@ -60,7 +61,7 @@ class AuthInterceptor extends Interceptor {
 class RefreshTokenInterceptor extends QueuedInterceptor {
   final Dio dio;
   final SecureStorageService storageService;
-  bool _isRefreshing = false;
+  Completer<String?>? _refreshCompleter;
 
   RefreshTokenInterceptor({
     required this.dio,
@@ -82,7 +83,7 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
         path.contains('/auth/2fa/');
 
     if (response?.statusCode == 401 && !isAuthEndpoint) {
-      // 1. Check if token was already refreshed by a concurrent request
+      // 1. Check if token was already refreshed by another concurrent request
       final storedAccess = await storageService.getAccessToken();
       final currentHeader = err.requestOptions.headers['Authorization'] as String?;
       if (currentHeader != null &&
@@ -104,51 +105,81 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
         }
       }
 
-      // 2. Perform coordinated refresh if not currently refreshing
-      if (!_isRefreshing) {
-        _isRefreshing = true;
+      // 2. Coordinated token refresh using shared Completer for parallel 401s
+      if (_refreshCompleter != null) {
         try {
-          final refreshToken = await storageService.getRefreshToken();
-          if (refreshToken != null && refreshToken.isNotEmpty) {
-            final refreshDio = Dio(
-              BaseOptions(
-                baseUrl: dio.options.baseUrl,
-                connectTimeout: const Duration(seconds: 10),
-                receiveTimeout: const Duration(seconds: 10),
-                headers: {
-                  'Accept': 'application/json',
-                  'Content-Type': 'application/json',
-                },
-              ),
-            );
-
-            final refreshResp = await refreshDio.post<Map<String, dynamic>>(
-              '/api/v1/auth/refresh',
-              data: {'refresh_token': refreshToken},
-            );
-
-            if (refreshResp.statusCode == 200 && refreshResp.data != null) {
-              final data = refreshResp.data!;
-              final newAccess = data['access_token'] as String;
-              final newRefresh = data['refresh_token'] as String;
-
-              await storageService.saveAccessToken(newAccess);
-              await storageService.saveRefreshToken(newRefresh);
-
-              final options = err.requestOptions;
-              options.headers['Authorization'] = 'Bearer $newAccess';
-
-              final retryResponse = await dio.fetch<dynamic>(options);
-              _isRefreshing = false;
-              return handler.resolve(retryResponse);
+          final refreshedToken = await _refreshCompleter!.future;
+          if (refreshedToken != null && refreshedToken.isNotEmpty) {
+            final options = err.requestOptions;
+            if (options.baseUrl.isEmpty) {
+              options.baseUrl = dio.options.baseUrl;
             }
+            options.headers['Authorization'] = 'Bearer $refreshedToken';
+            final retryResponse = await dio.fetch<dynamic>(options);
+            return handler.resolve(retryResponse);
           }
-        } catch (refreshError) {
-          // Refresh token compromised, expired, or reuse detected: wipe tokens
-          await storageService.wipeAllOnLogout();
-        } finally {
-          _isRefreshing = false;
+        } catch (retryErr) {
+          if (retryErr is DioException) {
+            return handler.next(retryErr);
+          }
         }
+        return handler.next(err);
+      }
+
+      // 3. Initiate single refresh operation for all queued concurrent 401s
+      final completer = Completer<String?>();
+      _refreshCompleter = completer;
+
+      try {
+        final refreshToken = await storageService.getRefreshToken();
+        if (refreshToken != null && refreshToken.isNotEmpty) {
+          final refreshDio = Dio(
+            BaseOptions(
+              baseUrl: dio.options.baseUrl,
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 10),
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            ),
+          );
+
+          final refreshResp = await refreshDio.post<Map<String, dynamic>>(
+            '/api/v1/auth/refresh',
+            data: {'refresh_token': refreshToken},
+          );
+
+          if (refreshResp.statusCode == 200 && refreshResp.data != null) {
+            final data = refreshResp.data!;
+            final newAccess = data['access_token'] as String;
+            final newRefresh = data['refresh_token'] as String;
+
+            await storageService.saveAccessToken(newAccess);
+            await storageService.saveRefreshToken(newRefresh);
+
+            completer.complete(newAccess);
+
+            final options = err.requestOptions;
+            if (options.baseUrl.isEmpty) {
+              options.baseUrl = dio.options.baseUrl;
+            }
+            options.headers['Authorization'] = 'Bearer $newAccess';
+
+            final retryResponse = await dio.fetch<dynamic>(options);
+            return handler.resolve(retryResponse);
+          } else {
+            completer.complete(null);
+          }
+        } else {
+          completer.complete(null);
+        }
+      } catch (refreshError) {
+        // Refresh token compromised, expired, or reuse detected: wipe tokens
+        await storageService.wipeAllOnLogout();
+        completer.complete(null);
+      } finally {
+        _refreshCompleter = null;
       }
     }
 

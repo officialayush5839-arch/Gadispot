@@ -82,7 +82,10 @@ async def test_sliding_window_rate_limiter_logic():
 
     # Simulate Redis connection drop / failure: gracefully fail open
     import redis.asyncio as aioredis
-    mock_pipeline.execute.side_effect = aioredis.ConnectionError("Redis connection dropped")
+
+    mock_pipeline.execute.side_effect = aioredis.ConnectionError(
+        "Redis connection dropped"
+    )
     is_limited, count, retry_after = await limiter.is_rate_limited(
         "user_123", mock_redis
     )
@@ -125,9 +128,7 @@ async def test_audit_event_service_immutability(db_session):
 async def test_admin_cannot_access_unauthorized_routes_without_explicit_role():
     """Verify that ADMIN does not unilaterally bypass explicit role requirements."""
     admin_id = uuid.uuid4()
-    admin_user = User(
-        id=admin_id, phone_number="+919800000099", full_name="Admin User"
-    )
+    admin_user = User(id=admin_id, phone_number="+919800000099", full_name="Admin User")
     admin_user.roles = [UserRole(user_id=admin_id, role=UserRoleEnum.ADMIN)]
 
     # Endpoint explicitly allows ONLY DRIVER
@@ -189,7 +190,9 @@ async def test_rate_limiter_bounded_memory_cache_eviction():
     assert count == 2
 
     # Third request: exceeds limit
-    is_limited, count, retry_after = await limiter.is_rate_limited("client_ip", mock_redis)
+    is_limited, count, retry_after = await limiter.is_rate_limited(
+        "client_ip", mock_redis
+    )
     assert is_limited is True
     assert count == 3
     assert retry_after >= 0
@@ -198,3 +201,53 @@ async def test_rate_limiter_bounded_memory_cache_eviction():
     limiter._memory_cache["expired_key"] = [1.0]  # Old timestamp
     limiter._prune_memory_cache(now=1000.0)
     assert "expired_key" not in limiter._memory_cache
+
+
+@pytest.mark.asyncio
+async def test_admin_role_has_no_wildcard_permission():
+    """Verify that ADMIN role does not grant wildcard '*' and enforces discrete least-privilege permissions."""
+    from app.services.auth_service import get_permissions_for_roles, ROLE_PERMISSIONS
+
+    admin_perms = get_permissions_for_roles(["ADMIN"])
+    assert "*" not in admin_perms
+    assert "*" not in ROLE_PERMISSIONS["ADMIN"]
+    assert len(admin_perms) > 0
+    # Must contain discrete admin operations
+    assert "admin:users:manage" in admin_perms
+    assert "admin:audit:read" in admin_perms
+    assert "admin:system:configure" in admin_perms
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_lru_cap_eviction():
+    """Verify that SlidingWindowRateLimiter deterministic OrderedDict LRU cache caps memory footprint."""
+    from unittest.mock import AsyncMock, MagicMock
+    from collections import OrderedDict
+    import redis.asyncio as aioredis
+
+    limiter = SlidingWindowRateLimiter(
+        key_prefix="lru_test",
+        max_requests=10,
+        window_seconds=60,
+        fail_closed=True,
+        max_memory_keys=10,
+    )
+
+    mock_redis = AsyncMock()
+    mock_pipeline = MagicMock()
+    mock_pipeline.execute = AsyncMock(
+        side_effect=aioredis.ConnectionError("Redis down")
+    )
+    mock_redis.pipeline = MagicMock(return_value=mock_pipeline)
+
+    assert isinstance(limiter._memory_cache, OrderedDict)
+
+    # Insert 15 items when capacity is 10
+    for i in range(15):
+        await limiter.is_rate_limited(f"user_{i}", mock_redis)
+
+    # Size must not exceed max_memory_keys (10)
+    assert len(limiter._memory_cache) <= 10
+    # Earliest items (user_0 .. user_4) should have been popped
+    assert "ratelimit:lru_test:user_0" not in limiter._memory_cache
+    assert "ratelimit:lru_test:user_14" in limiter._memory_cache

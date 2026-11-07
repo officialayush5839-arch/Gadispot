@@ -6,9 +6,9 @@
 > **Target Pilot Geography:** Bengaluru Urban Metro, Karnataka, India (Koramangala, Indiranagar, HSR Layout — 200 Pilot Bays)  
 > **Target Execution Platforms:** Mobile-Only (Single Cross-Platform Flutter Mobile Binary for Android & iOS)  
 > **Backend Architecture:** In-Process Modular Monolith (Python 3.12 / FastAPI / PostgreSQL 16 + PostGIS + `btree_gist` / Redis 7.0+)  
-> **Test Verification Baseline:** 114/114 Executable Backend Pytest Tests Passing (100% Green); 37 Flutter Tests Passing (100% Green)  
+> **Test Verification Baseline:** 120/120 Executable Backend Pytest Tests Passing (100% Green); 37 Flutter Tests Passing (100% Green)  
 > **Specification Harmonization:** 100% Green via `scripts/validate_spec.py` (0 banned patterns, 100% link integrity, 6/6 frozen files validated)  
-> **Current Engineering Status:** `Strategic Phase 2.5 COMPLETE — IAM Security Remediation, Hardening & Independent Verification Verified` (Ready for Phase 03: Parking Space Inventory & Onboarding)  
+> **Current Engineering Status:** `Strategic Phase 2.6 COMPLETE — Security Closure, Hardening & Adversarial Regression Verified` (Ready for Phase 03: Parking Space Inventory & Onboarding)  
 > **Last Verification Date:** November 7, 2026  
 
 ---
@@ -23,8 +23,8 @@ Document Identity Matrix
 --------------------------------------------------------------------------------------------------------
 Document Title            : Gadispot Master Project Context & Agent Continuity Memory
 Repository File Path      : memory.md
-Document Version          : 1.2.5 (Phase 2.5 Security Remediation Baseline)
-Context Freeze Status     : STRATEGIC PHASE 2.5 COMPLETE (VERIFIED)
+Document Version          : 1.2.6 (Phase 2.6 Security Closure Baseline)
+Context Freeze Status     : STRATEGIC PHASE 2.6 COMPLETE (VERIFIED)
 Last Verified Date        : November 7, 2026
 Verified Execution Host   : Windows Host (Python 3.14.6 / PostgreSQL 16.14 on localhost:5432)
 CI Target Environment     : Ubuntu Latest (Python 3.11 / PostgreSQL 16 Container)

@@ -14,9 +14,18 @@ def test_alembic_script_directory_and_head_revisions():
     # Verify heads
     heads = script.get_heads()
     assert len(heads) == 1
-    assert heads[0] in ("003_demo_payments", "004_identity_and_sessions", "005_totp_hardening")
+    assert heads[0] in (
+        "003_demo_payments",
+        "004_identity_and_sessions",
+        "005_totp_hardening",
+        "006_revocation_and_mfa",
+    )
 
-    # Verify revision chain: 005 -> 004 -> 003 -> 002 -> 001 -> None
+    # Verify revision chain: 006 -> 005 -> 004 -> 003 -> 002 -> 001 -> None
+    rev_006 = script.get_revision("006_revocation_and_mfa")
+    if rev_006 is not None:
+        assert rev_006.down_revision == "005_totp_hardening"
+
     rev_005 = script.get_revision("005_totp_hardening")
     if rev_005 is not None:
         assert rev_005.down_revision == "004_identity_and_sessions"
@@ -59,6 +68,8 @@ async def test_canonical_tables_exist(db_session):
         "outbox_events",
         "audit_events",
         "payments",
+        "user_sessions",
+        "revoked_tokens",
     }
 
     result = await db_session.execute(

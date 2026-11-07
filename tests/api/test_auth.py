@@ -201,7 +201,7 @@ async def test_identity_conflict_on_phone_with_different_firebase_uid(db_session
 
 @pytest.mark.asyncio
 async def test_concurrent_refresh_token_rotation_atomic(db_session):
-    """Verify that concurrent requests with the same refresh token cannot both succeed."""
+    """Verify that concurrent requests with the same refresh token are coordinated under OAuth 2.0 BCP §4.14.2 grace period."""
     import asyncio
 
     transport = ASGITransport(app=app)
@@ -221,14 +221,233 @@ async def test_concurrent_refresh_token_rotation_atomic(db_session):
             return_exceptions=True,
         )
 
-        status_codes = [r.status_code for r in (res1, res2) if hasattr(r, "status_code")]
-        # Exactly one request must succeed (200), and the other must be rejected (401)
+        status_codes = [
+            r.status_code for r in (res1, res2) if hasattr(r, "status_code")
+        ]
+        # Exactly one request must succeed (200), and the other must be rejected (409 TOKEN_ALREADY_ROTATED within grace period)
         assert 200 in status_codes
-        assert 401 in status_codes
+        assert 409 in status_codes
+
+        # Ensure the winning session's tokens are valid and not revoked
+        winning_resp = res1 if res1.status_code == 200 else res2
+        winning_data = winning_resp.json()
+        new_access = winning_data["access_token"]
+        new_refresh = winning_data["refresh_token"]
+
+        # Winning access token must be usable
+        me_resp = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {new_access}"}
+        )
+        assert me_resp.status_code == 200
+
+        # Winning refresh token must be usable for subsequent rotation
+        next_refresh_resp = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": new_refresh}
+        )
+        assert next_refresh_resp.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_authoritative_database_revocation_fallback_when_redis_unavailable(db_session):
+async def test_refresh_token_reuse_outside_grace_period_invalidates_family(db_session):
+    """Verify that using an old refresh token outside the grace period triggers reuse detection and revokes the session family."""
+    from app.models.session import UserSession
+    from sqlalchemy import select, update
+    from datetime import datetime, timezone, timedelta
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        phone = f"+9198{uuid.uuid4().hex[:8]}"
+        resp = await client.post(
+            "/api/v1/auth/session",
+            json={"id_token": f"test-token-reuse:{phone}"},
+        )
+        assert resp.status_code == 200
+        initial_refresh = resp.json()["refresh_token"]
+
+        # First rotation: rotates cleanly
+        rot_resp = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": initial_refresh}
+        )
+        assert rot_resp.status_code == 200
+        active_access = rot_resp.json()["access_token"]
+
+        # Artificially age the revoked_at timestamp on the old session past the 10s grace period (e.g. 30s ago)
+        import hashlib
+
+        old_hash = hashlib.sha256(initial_refresh.encode()).hexdigest()
+        await db_session.execute(
+            update(UserSession)
+            .where(UserSession.refresh_token_hash == old_hash)
+            .values(revoked_at=datetime.now(timezone.utc) - timedelta(seconds=30))
+        )
+        await db_session.commit()
+
+        # Replay the old refresh token outside grace period -> MUST trigger 401 TOKEN_REVOKED
+        replay_resp = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": initial_refresh}
+        )
+        assert replay_resp.status_code == 401
+        assert replay_resp.json()["code"] == "TOKEN_REVOKED"
+
+        # Verify that the entire session family was revoked and the previously active token is now dead
+        me_resp = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {active_access}"}
+        )
+        assert me_resp.status_code == 401
+        assert me_resp.json()["code"] == "TOKEN_REVOKED"
+
+
+@pytest.mark.asyncio
+async def test_login_requires_totp_when_enabled_and_completes_via_challenge(db_session):
+    """Verify that when 2FA is active, login yields 403 MFA_REQUIRED and completes via /2fa/challenge."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        phone = f"+9198{uuid.uuid4().hex[:8]}"
+        id_token = f"test-token-mfa-flow:{phone}"
+
+        # 1. First login / registration without 2FA
+        auth_resp = await client.post(
+            "/api/v1/auth/session", json={"id_token": id_token}
+        )
+        assert auth_resp.status_code == 200
+        access_token = auth_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # 2. Setup 2FA
+        setup_resp = await client.post("/api/v1/auth/2fa/setup", headers=headers)
+        assert setup_resp.status_code == 200
+        secret = setup_resp.json()["secret"]
+
+        # 3. Verify & activate 2FA
+        code = pyotp.TOTP(secret).now()
+        verify_resp = await client.post(
+            "/api/v1/auth/2fa/verify", headers=headers, json={"code": code}
+        )
+        assert verify_resp.status_code == 200
+        assert verify_resp.json()["valid"] is True
+
+        # 4. Subsequent login without TOTP must be challenged with 403 MFA_REQUIRED
+        challenge_req_resp = await client.post(
+            "/api/v1/auth/session", json={"id_token": id_token}
+        )
+        assert challenge_req_resp.status_code == 403
+        challenge_data = challenge_req_resp.json()
+        assert challenge_data["code"] == "MFA_REQUIRED"
+        assert "mfa_token" in challenge_data
+        mfa_token = challenge_data["mfa_token"]
+
+        # 5. Invalid MFA challenge attempt
+        bad_chal_resp = await client.post(
+            "/api/v1/auth/2fa/challenge",
+            json={"mfa_token": mfa_token, "totp_code": "000000"},
+        )
+        assert bad_chal_resp.status_code == 401
+        assert bad_chal_resp.json()["code"] == "INVALID_TOTP_CODE"
+
+        # 6. Valid MFA challenge completes login and returns full TokenResponse
+        fresh_code = pyotp.TOTP(secret).now()
+        good_chal_resp = await client.post(
+            "/api/v1/auth/2fa/challenge",
+            json={"mfa_token": mfa_token, "totp_code": fresh_code},
+        )
+        assert good_chal_resp.status_code == 200
+        tokens = good_chal_resp.json()
+        assert "access_token" in tokens
+        assert "refresh_token" in tokens
+
+        # Verify access token works
+        me_resp = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        assert me_resp.status_code == 200
+
+        # 7. Direct login supplying totp_code in initial payload also succeeds
+        direct_code = pyotp.TOTP(secret).now()
+        direct_resp = await client.post(
+            "/api/v1/auth/session",
+            json={"id_token": id_token, "totp_code": direct_code},
+        )
+        assert direct_resp.status_code == 200
+        assert "access_token" in direct_resp.json()
+
+
+@pytest.mark.asyncio
+async def test_totp_reenrollment_requires_current_code_and_preserves_active_factor(
+    db_session,
+):
+    """Verify that re-enrolling TOTP requires proof of current factor and does not disable active 2FA until verified."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        phone = f"+9198{uuid.uuid4().hex[:8]}"
+        id_token = f"test-token-reenroll:{phone}"
+
+        # 1. Login and setup initial 2FA
+        auth_resp = await client.post(
+            "/api/v1/auth/session", json={"id_token": id_token}
+        )
+        token = auth_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        setup1_resp = await client.post("/api/v1/auth/2fa/setup", headers=headers)
+        secret_old = setup1_resp.json()["secret"]
+        code_old = pyotp.TOTP(secret_old).now()
+        await client.post(
+            "/api/v1/auth/2fa/verify", headers=headers, json={"code": code_old}
+        )
+
+        # 2. Calling setup again without current code must be rejected with 403 MFA_VERIFICATION_REQUIRED
+        rej1 = await client.post("/api/v1/auth/2fa/setup", headers=headers, json={})
+        assert rej1.status_code == 403
+        assert rej1.json()["code"] == "MFA_VERIFICATION_REQUIRED"
+
+        # 3. Calling setup with wrong current code rejected with 401 INVALID_TOTP_CODE
+        rej2 = await client.post(
+            "/api/v1/auth/2fa/setup",
+            headers=headers,
+            json={"current_totp_code": "000000"},
+        )
+        assert rej2.status_code == 401
+        assert rej2.json()["code"] == "INVALID_TOTP_CODE"
+
+        # 4. Calling setup with valid current code returns new secret without deactivating old factor
+        valid_current_code = pyotp.TOTP(secret_old).now()
+        setup2_resp = await client.post(
+            "/api/v1/auth/2fa/setup",
+            headers=headers,
+            json={"current_totp_code": valid_current_code},
+        )
+        assert setup2_resp.status_code == 200
+        secret_new = setup2_resp.json()["secret"]
+        assert secret_new != secret_old
+
+        # 5. At this moment, old secret MUST STILL BE FUNCTIONAL for login challenges
+        login_resp = await client.post(
+            "/api/v1/auth/session",
+            json={"id_token": id_token, "totp_code": pyotp.TOTP(secret_old).now()},
+        )
+        assert login_resp.status_code == 200
+
+        # 6. Verify and promote the new secret
+        code_new = pyotp.TOTP(secret_new).now()
+        verify_new_resp = await client.post(
+            "/api/v1/auth/2fa/verify", headers=headers, json={"code": code_new}
+        )
+        assert verify_new_resp.status_code == 200
+        assert verify_new_resp.json()["valid"] is True
+
+        # 7. Now new secret works for login, and old secret is rejected
+        login_new_resp = await client.post(
+            "/api/v1/auth/session",
+            json={"id_token": id_token, "totp_code": pyotp.TOTP(secret_new).now()},
+        )
+        assert login_new_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_authoritative_database_revocation_fallback_when_redis_unavailable(
+    db_session,
+):
     """Verify that when Redis is unreachable, revoked session families are rejected via DB fallback."""
     from unittest.mock import AsyncMock, patch
 
@@ -267,10 +486,70 @@ async def test_authoritative_database_revocation_fallback_when_redis_unavailable
 
         with patch("app.core.dependencies.aioredis.from_url") as mock_redis_factory:
             mock_client = AsyncMock()
-            mock_client.get.side_effect = aioredis.ConnectionError("Redis cluster unreachable")
+            mock_client.get.side_effect = aioredis.ConnectionError(
+                "Redis cluster unreachable"
+            )
             mock_redis_factory.return_value = mock_client
 
             # With Redis down, the authoritative DB fallback must catch that the session family is revoked!
             revoked_resp = await client.get("/api/v1/auth/me", headers=headers)
             assert revoked_resp.status_code == 401
             assert revoked_resp.json()["code"] == "TOKEN_REVOKED"
+
+
+@pytest.mark.asyncio
+async def test_individual_access_token_logout_persisted_to_revoked_tokens_table_and_enforced_in_db_fallback(
+    db_session,
+):
+    """Verify that explicit logout records access token JTI into revoked_tokens and rejects it during Redis outage."""
+    from unittest.mock import AsyncMock, patch
+    from sqlalchemy import select
+    from app.models.revoked_token import RevokedToken
+    import redis.asyncio as aioredis
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        phone = f"+9198{uuid.uuid4().hex[:8]}"
+        auth_resp = await client.post(
+            "/api/v1/auth/session",
+            json={"id_token": f"test-token-jti-logout:{phone}"},
+        )
+        assert auth_resp.status_code == 200
+        token_data = auth_resp.json()
+        token = token_data["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # 1. Access token works before logout
+        me_resp = await client.get("/api/v1/auth/me", headers=headers)
+        assert me_resp.status_code == 200
+
+        # 2. Call logout
+        logout_resp = await client.post("/api/v1/auth/logout", headers=headers)
+        assert logout_resp.status_code == 200
+
+        # 3. Verify entry was persisted into revoked_tokens table
+        revoked_records = (
+            (
+                await db_session.execute(
+                    select(RevokedToken).where(
+                        RevokedToken.user_id == uuid.UUID(token_data["user"]["id"])
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(revoked_records) >= 1
+
+        # 4. Mock complete Redis failure
+        with patch("app.core.dependencies.aioredis.from_url") as mock_redis_factory:
+            mock_client = AsyncMock()
+            mock_client.get.side_effect = aioredis.ConnectionError(
+                "Redis cluster unreachable"
+            )
+            mock_redis_factory.return_value = mock_client
+
+            # Must reject with 401 TOKEN_REVOKED via postgres revoked_tokens check
+            check_resp = await client.get("/api/v1/auth/me", headers=headers)
+            assert check_resp.status_code == 401
+            assert check_resp.json()["code"] == "TOKEN_REVOKED"

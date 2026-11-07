@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from collections import OrderedDict
 
 import redis.asyncio as aioredis
 from fastapi import Depends, Request
@@ -35,8 +36,10 @@ class RateLimitExceededException(DomainException):
 class SlidingWindowRateLimiter:
     """Sliding-window counter implementation using Redis sorted sets (ZSET).
 
-    Falls back to a bounded in-memory sliding cache during Redis outages. Note: The in-memory
-    fallback is process-local and provides bounded abuse mitigation during temporary distributed cache degradation.
+    Architecture Note:
+    During distributed Redis degradation, this rate limiter falls back to a bounded
+    process-local LRU sliding-window cache. This provides node-level degraded protection
+    against abuse until distributed Redis connectivity is restored.
     """
 
     MAX_MEMORY_CACHE_KEYS: int = 5000
@@ -47,15 +50,17 @@ class SlidingWindowRateLimiter:
         max_requests: int,
         window_seconds: int,
         fail_closed: bool = False,
+        max_memory_keys: int | None = None,
     ):
         self.key_prefix = key_prefix
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.fail_closed = fail_closed
-        self._memory_cache: dict[str, list[float]] = {}
+        self.max_memory_keys = max_memory_keys or self.MAX_MEMORY_CACHE_KEYS
+        self._memory_cache: OrderedDict[str, list[float]] = OrderedDict()
 
     def _prune_memory_cache(self, now: float) -> None:
-        """Evict expired timestamps and bound memory consumption to prevent unbounded leak."""
+        """Evict expired timestamps and enforce strict LRU ordering up to max_memory_keys."""
         window_start = now - self.window_seconds
         expired_keys = []
         for k, timestamps in list(self._memory_cache.items()):
@@ -68,12 +73,9 @@ class SlidingWindowRateLimiter:
         for k in expired_keys:
             self._memory_cache.pop(k, None)
 
-        # Cap memory size if key space exceeds threshold
-        if len(self._memory_cache) > self.MAX_MEMORY_CACHE_KEYS:
-            overflow_count = len(self._memory_cache) - self.MAX_MEMORY_CACHE_KEYS
-            for _ in range(overflow_count):
-                if self._memory_cache:
-                    self._memory_cache.pop(next(iter(self._memory_cache)), None)
+        # Enforce LRU eviction if key space exceeds max_memory_keys
+        while len(self._memory_cache) > self.max_memory_keys:
+            self._memory_cache.popitem(last=False)
 
     async def is_rate_limited(
         self,
@@ -120,6 +122,9 @@ class SlidingWindowRateLimiter:
                 timestamps = [t for t in self._memory_cache.get(key, []) if t > window_start]
                 timestamps.append(now)
                 self._memory_cache[key] = timestamps
+                self._memory_cache.move_to_end(key)
+                while len(self._memory_cache) > self.max_memory_keys:
+                    self._memory_cache.popitem(last=False)
                 current_count = len(timestamps)
                 if current_count > self.max_requests:
                     retry_after = max(1, int(timestamps[0] + self.window_seconds - now))

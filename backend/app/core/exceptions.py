@@ -104,6 +104,7 @@ class UnauthorizedException(DomainException):
         title: str = "Unauthorized",
         code: str = "UNAUTHORIZED",
         instance: str | None = None,
+        extra: dict[str, Any] | None = None,
     ):
         super().__init__(
             detail=detail,
@@ -111,6 +112,7 @@ class UnauthorizedException(DomainException):
             status_code=401,
             code=code,
             instance=instance,
+            extra=extra,
         )
 
 
@@ -123,6 +125,7 @@ class ForbiddenException(DomainException):
         title: str = "Forbidden",
         code: str = "FORBIDDEN",
         instance: str | None = None,
+        extra: dict[str, Any] | None = None,
     ):
         super().__init__(
             detail=detail,
@@ -130,6 +133,7 @@ class ForbiddenException(DomainException):
             status_code=403,
             code=code,
             instance=instance,
+            extra=extra,
         )
 
 

@@ -11,9 +11,39 @@ class FirebaseExchangeRequest(BaseModel):
     id_token: str = Field(..., min_length=10, description="Verified Firebase Phone Auth ID token")
     fcm_token: str | None = Field(None, description="Optional FCM device push token for notifications")
     device_info: str | None = Field(None, description="Optional client device info / metadata")
+    totp_code: str | None = Field(None, description="Optional 6-digit TOTP code if 2FA is active on the account")
 
 
 FirebaseSessionRequest = FirebaseExchangeRequest
+
+
+class MfaChallengeRequest(BaseModel):
+    """Payload to complete two-factor authentication challenge after phone verification."""
+
+    mfa_token: str = Field(..., description="Short-lived challenge token returned by /auth/exchange")
+    totp_code: str = Field(..., min_length=6, max_length=6, description="6-digit TOTP code")
+    device_info: str | None = Field(None, description="Optional client device info / metadata")
+
+
+class MfaChallengeResponse(BaseModel):
+    """Returned when an account requires a two-factor authentication challenge."""
+
+    mfa_required: bool = Field(True, description="Indicates a second factor is mandatory")
+    mfa_token: str = Field(..., description="Short-lived challenge token (valid for 5 minutes)")
+    message: str = Field(
+        "Two-factor authentication is active. Please complete the challenge via /2fa/challenge with your 6-digit code.",
+        description="User-facing prompt",
+    )
+    expires_in: int = Field(300, description="Challenge validity in seconds")
+
+
+class TotpSetupRequest(BaseModel):
+    """Payload to initialize or re-enroll RFC 6238 TOTP 2FA."""
+
+    current_totp_code: str | None = Field(
+        None,
+        description="Current valid 6-digit TOTP code, required if 2FA is currently active on the account.",
+    )
 
 
 class RefreshTokenRequest(BaseModel):

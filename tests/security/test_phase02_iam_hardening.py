@@ -127,7 +127,21 @@ async def test_token_reuse_detection_and_family_invalidation(db_session):
         assert rot_resp.status_code == 200, rot_resp.text
         refresh_2 = rot_resp.json()["refresh_token"]
 
-        # ATTACK: Replay refresh_1 (which has already been consumed)
+        # Artificially age the rotation past the grace period (15s ago) to test post-grace replay detection
+        import hashlib
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import update
+        from app.models.session import UserSession
+
+        h1 = hashlib.sha256(refresh_1.encode()).hexdigest()
+        await db_session.execute(
+            update(UserSession)
+            .where(UserSession.refresh_token_hash == h1)
+            .values(revoked_at=datetime.now(timezone.utc) - timedelta(seconds=15))
+        )
+        await db_session.commit()
+
+        # ATTACK: Replay refresh_1 (which has already been consumed and is outside grace period)
         replay_resp = await client.post(
             "/api/v1/auth/refresh",
             json={"refresh_token": refresh_1},
@@ -169,7 +183,10 @@ async def test_logout_session_revocation(db_session):
         logout_resp = await client.post(
             "/api/v1/auth/logout",
             json={"refresh_token": refresh_tok},
-            headers={"Authorization": f"Bearer {access_tok}", "X-Forwarded-For": client_ip},
+            headers={
+                "Authorization": f"Bearer {access_tok}",
+                "X-Forwarded-For": client_ip,
+            },
         )
         assert logout_resp.status_code == 200
         assert logout_resp.json()["message"] == "Successfully logged out"
@@ -198,7 +215,10 @@ async def test_get_current_user_profile_me(db_session):
 
         me_resp = await client.get(
             "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {access_tok}", "X-Forwarded-For": client_ip},
+            headers={
+                "Authorization": f"Bearer {access_tok}",
+                "X-Forwarded-For": client_ip,
+            },
         )
         assert me_resp.status_code == 200
         me_data = me_resp.json()
@@ -279,7 +299,9 @@ async def test_fail_closed_rate_limiter_in_memory():
     mock_redis = AsyncMock()
     mock_pipeline = MagicMock()
     # Simulate Redis connection drop
-    mock_pipeline.execute = AsyncMock(side_effect=aioredis.ConnectionError("Redis down"))
+    mock_pipeline.execute = AsyncMock(
+        side_effect=aioredis.ConnectionError("Redis down")
+    )
     mock_redis.pipeline = MagicMock(return_value=mock_pipeline)
 
     limiter = SlidingWindowRateLimiter(
@@ -300,7 +322,9 @@ async def test_fail_closed_rate_limiter_in_memory():
     assert count_2 == 2
 
     # Third request: exceeded limit (max_requests=2) -> True (BLOCKED)
-    is_limited_3, count_3, retry_after = await limiter.is_rate_limited("client_ip_1", mock_redis)
+    is_limited_3, count_3, retry_after = await limiter.is_rate_limited(
+        "client_ip_1", mock_redis
+    )
     assert is_limited_3 is True
     assert count_3 == 3
     assert retry_after > 0
@@ -373,9 +397,15 @@ async def test_booking_idor_shielding(db_session):
     )
     await db_session.commit()
 
-    tok_driver1 = create_access_token(subject=str(driver1.id), claims={"roles": ["DRIVER"]})
-    tok_driver2 = create_access_token(subject=str(driver2.id), claims={"roles": ["DRIVER"]})
-    tok_ops = create_access_token(subject=str(ops_user.id), claims={"roles": ["OPERATIONS"]})
+    tok_driver1 = create_access_token(
+        subject=str(driver1.id), claims={"roles": ["DRIVER"]}
+    )
+    tok_driver2 = create_access_token(
+        subject=str(driver2.id), claims={"roles": ["DRIVER"]}
+    )
+    tok_ops = create_access_token(
+        subject=str(ops_user.id), claims={"roles": ["OPERATIONS"]}
+    )
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

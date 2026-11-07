@@ -290,7 +290,26 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 
 ---
 
-## 16. Audit & Governance Signoff
+## 16. Strategic Phase 2.6: Security Closure, Hardening & Adversarial Regression
+
+**Goal:** Close all remaining discrepancies, eliminate refresh concurrency races under OAuth 2.0 BCP §4.14.2 grace window, implement persistent PostgreSQL JTI revocation fallback (`revoked_tokens` table), enforce login-time TOTP challenges, protect 2FA factor re-enrollment, coordinate Flutter parallel 401 retries via shared Completer, and eliminate all wildcard ADMIN permissions.  
+**Status:** **COMPLETED**  
+**Lead:** Principal Application Security Engineer & Systems Architect  
+**Prerequisites:** Phase 2.5 Completion  
+
+| Task ID | Task Title | Role | Status | Description | Deliverables | Verification Criteria |
+|---|---|---|:---:|---|---|---|
+| `TSK-P26-001` | TOTP Login Enforcement & Challenge Endpoint | App Security Engineer | **COMPLETED** | Enforce 2FA during `/auth/exchange` and `/auth/session`; return 403 `MFA_REQUIRED` with signed `mfa_token`; implement `POST /api/v1/auth/2fa/challenge`. | `backend/app/api/v1/endpoints/auth.py`, `backend/app/services/auth_service.py`. | Validated via `tests/api/test_auth.py::test_login_requires_totp_when_enabled_and_completes_via_challenge`. |
+| `TSK-P26-002` | TOTP Re-enrollment Factor Protection | App Security Engineer | **COMPLETED** | Add `totp_pending_secret_encrypted` via Alembic migration `006_revocation_and_mfa`; require `current_totp_code` on `/2fa/setup` when 2FA is active; preserve active secret until `/2fa/verify`. | `backend/alembic/versions/006_revocation_and_mfa.py`, `backend/app/models/users.py`, `backend/app/api/v1/endpoints/auth.py`. | Validated via `tests/api/test_auth.py::test_totp_reenrollment_requires_current_code_and_preserves_active_factor`. |
+| `TSK-P26-003` | Refresh Token Concurrency Grace Period | Senior Backend Architect | **COMPLETED** | Implement OAuth 2.0 Security BCP §4.14.2 grace window (10s); return 409 `TOKEN_ALREADY_ROTATED` on concurrent retry without revoking active family; revoke family on replay outside 10s. | `backend/app/core/config.py`, `backend/app/services/auth_service.py`. | Validated via `tests/api/test_auth.py::test_concurrent_refresh_token_rotation_atomic` & `test_refresh_token_reuse_outside_grace_period_invalidates_family`. |
+| `TSK-P26-004` | Persistent PostgreSQL JTI Revocation Table | Database Architect | **COMPLETED** | Create `revoked_tokens` table via migration `006_revocation_and_mfa`; record logged-out access token JTI to PostgreSQL; enforce DB fallback for JTI revocation during Redis downtime. | `backend/alembic/versions/006_revocation_and_mfa.py`, `backend/app/models/revoked_token.py`, `backend/app/core/dependencies.py`. | Validated via `tests/api/test_auth.py::test_individual_access_token_logout_persisted_to_revoked_tokens_table_and_enforced_in_db_fallback`. |
+| `TSK-P26-005` | Flutter Refresh Coordination via Shared Completer | Senior Flutter Engineer | **COMPLETED** | Replace boolean `_isRefreshing` in `DioClient` with `Completer<String?>? _refreshCompleter`; coordinate parallel 401 retries on shared refresh future. | `mobile/lib/core/network/api_client.dart`, `mobile/test/core/refresh_interceptor_test.dart`. | Validated via `mobile/test/core/refresh_interceptor_test.dart`. |
+| `TSK-P26-006` | Wildcard ADMIN Permission Elimination | App Security Engineer | **COMPLETED** | Remove `"*"` from `ROLE_PERMISSIONS["ADMIN"]` and `get_permissions_for_roles()`; enforce discrete least-privilege administrative permissions. | `backend/app/services/auth_service.py`. | Validated via `tests/api/test_security_rbac.py::test_admin_role_has_no_wildcard_permission`. |
+| `TSK-P26-007` | Rate Limiter Deterministic LRU Key-Cap Eviction | Senior Backend Architect | **COMPLETED** | Implement `OrderedDict` with `move_to_end()` and `popitem(last=False)` capping in-memory degraded cache at `max_memory_keys` (5,000 keys). | `backend/app/core/rate_limiter.py`. | Validated via `tests/api/test_security_rbac.py::test_rate_limiter_lru_cap_eviction`. |
+
+---
+
+## 17. Audit & Governance Signoff
 
 | Role | Name / Persona | Status | Date |
 |---|---|:---:|:---:|
@@ -299,4 +318,5 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 | Engineering Auditor | Forensic Auditor Persona | **CLEAN** | 2026-11-05 |
 | Lead IAM & Security Architect | Antigravity Phase 02 Lead | **APPROVED** | 2026-11-06 |
 | Independent Application Security Lead | Antigravity Phase 2.5 Lead | **VERIFIED** | 2026-11-07 |
+| Principal Systems & Security Architect | Antigravity Phase 2.6 Lead | **VERIFIED** | 2026-11-07 |
 
