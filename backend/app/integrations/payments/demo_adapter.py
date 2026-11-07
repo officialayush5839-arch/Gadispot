@@ -155,7 +155,7 @@ class DemoPaymentAdapter(PaymentGatewayPort):
             amount_paise=amount_paise,
             is_payment_success=is_success,
             is_refund_update=is_refund,
-            refund_status="settled" if is_refund else None,
+            refund_status="REFUND_SETTLED" if is_refund else None,
             refund_arn_utr=f"SIM_UTR_{uuid.uuid4().hex[:10].upper()}" if is_refund else None,
             payload=payload,
         )

@@ -1,6 +1,5 @@
 """Payment initiation, dynamic UPI QR generation, simulation triggers, and refund management endpoints."""
 
-from typing import Any
 import uuid
 
 from fastapi import APIRouter, Depends, status
@@ -8,13 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import (
-    get_current_user,
     require_roles,
     verify_resource_ownership,
 )
-from app.core.config import settings
-from app.core.dependencies import get_current_user_optional, get_db
-from app.core.exceptions import EntityNotFoundException, ValidationException
+from app.core.config import get_settings
+from app.core.dependencies import get_current_user, get_current_user_optional, get_db
+from app.core.exceptions import EntityNotFoundException
 from app.integrations.payments.factory import PaymentGatewayFactory
 from app.integrations.payments.upi_qr_service import (
     build_upi_payment_uri,
@@ -53,9 +51,10 @@ router = APIRouter()
 )
 async def list_payment_providers() -> ProviderListResponse:
     """Retrieve supported payment gateways and system operation flags."""
+    app_settings = get_settings()
     return ProviderListResponse(
-        active_mode=settings.PAYMENT_MODE,
-        demo_enabled=settings.DEMO_PAYMENTS_ENABLED,
+        active_mode=app_settings.PAYMENT_MODE,
+        demo_enabled=app_settings.DEMO_PAYMENTS_ENABLED,
         supported_providers=PaymentGatewayFactory.get_supported_gateways(),
     )
 
@@ -336,7 +335,8 @@ async def request_refund(
 
     await RefundService.request_refund(db, reservation.id, payload.reason)
 
-    adapter = PaymentGatewayFactory.get_adapter("demo" if settings.DEMO_PAYMENTS_ENABLED else "razorpay")
+    app_settings = get_settings()
+    adapter = PaymentGatewayFactory.get_adapter("demo" if app_settings.DEMO_PAYMENTS_ENABLED else "razorpay")
     refund_res = await adapter.process_refund(
         payment_id=reservation.payment_transaction_id or "pay_demo_default",
         amount_paise=payload.amount_paise or 10000,

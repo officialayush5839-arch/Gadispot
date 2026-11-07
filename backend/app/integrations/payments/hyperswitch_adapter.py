@@ -12,7 +12,6 @@ import logging
 import uuid
 from typing import Any
 
-from app.core.config import get_settings
 from app.integrations.payments.base import (
     GatewayWebhookEvent,
     PaymentGatewayPort,
@@ -32,7 +31,6 @@ class HyperswitchAdapter(PaymentGatewayPort):
         base_url: str | None = None,
         webhook_secret: str | None = None,
     ):
-        settings = get_settings()
         self.api_key = api_key or "hs_test_mock_api_key_gadispot"
         self.base_url = base_url or "http://localhost:8080/payments"  # Default local Hyperswitch service
         self.webhook_secret = webhook_secret or "hs_test_mock_webhook_secret"

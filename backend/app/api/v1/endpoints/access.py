@@ -15,7 +15,7 @@ from app.core.exceptions import (
     ForbiddenException,
     ValidationException,
 )
-from app.models.access import AccessCredential
+from app.models.access import AccessCredential, generate_access_credentials
 from app.models.enums import (
     ReservationStatusEnum,
     TokenStatusEnum,
@@ -68,29 +68,9 @@ async def issue_access_tokens(
         )
 
     now = datetime.now(timezone.utc)
-    valid_from = now - timedelta(minutes=15)
-    valid_until = now + timedelta(hours=24)
-
-    # 128-bit entropy tokens
-    entry_token = f"spx_ent_{secrets.token_hex(16)}"
-    exit_token = f"spx_ext_{secrets.token_hex(16)}"
-
-    entry_cred = AccessCredential(
-        reservation_id=res.id,
-        token_type=TokenTypeEnum.ENTRY,
-        opaque_token=entry_token,
-        status=TokenStatusEnum.ISSUED,
-        valid_from=valid_from,
-        valid_until=valid_until,
-    )
-    exit_cred = AccessCredential(
-        reservation_id=res.id,
-        token_type=TokenTypeEnum.EXIT,
-        opaque_token=exit_token,
-        status=TokenStatusEnum.ISSUED,
-        valid_from=valid_from,
-        valid_until=valid_until,
-    )
+    entry_cred, exit_cred = generate_access_credentials(reservation_id=res.id)
+    entry_token = entry_cred.opaque_token
+    exit_token = exit_cred.opaque_token
 
     db.add(entry_cred)
     db.add(exit_cred)
@@ -100,8 +80,8 @@ async def issue_access_tokens(
         reservation_id=res.id,
         entry_token=entry_token,
         exit_token=exit_token,
-        valid_from=valid_from,
-        valid_until=valid_until,
+        valid_from=entry_cred.valid_from,
+        valid_until=entry_cred.valid_until,
     )
 
 
@@ -119,8 +99,8 @@ async def validate_gate_scan(
     """Validate access pass, guard against replay attacks, and update session state."""
     guard_id = payload.guard_id
     if current_user:
-        user_roles = {r.role.value if hasattr(r.role, "value") else str(r.role) for r in current_user.roles}
-        allowed = {UserRoleEnum.GUARD.value, UserRoleEnum.ADMIN.value, "SECURITY_GUARD", "GUARD", "ADMIN"}
+        user_roles = set(current_user.canonical_role_names)
+        allowed = {UserRoleEnum.GUARD.value, UserRoleEnum.ADMIN.value}
         if not user_roles.intersection(allowed):
             raise ForbiddenException(
                 detail="Guard clearance required to validate gate scan.",

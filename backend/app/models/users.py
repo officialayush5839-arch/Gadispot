@@ -16,15 +16,7 @@ from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.enums import UserRoleEnum, VehicleCategoryEnum
-
-
-class AccountStatus(str, enum.Enum):
-    """Account lifecycle status for authorization and access enforcement."""
-
-    ACTIVE = "ACTIVE"
-    DISABLED = "DISABLED"
-    SUSPENDED = "SUSPENDED"
+from app.models.enums import AccountStatus, UserRoleEnum, VehicleCategoryEnum
 
 
 UserStatusEnum = AccountStatus
@@ -67,6 +59,24 @@ class User(Base):
     sessions: Mapped[list["UserSession"]] = relationship(  # type: ignore # noqa: F821
         "UserSession", back_populates="user", cascade="all, delete-orphan"
     )
+
+    @property
+    def role_names(self) -> list[str]:
+        """Return raw role string names assigned to the user."""
+        return [r.role.value if hasattr(r.role, "value") else str(r.role) for r in self.roles]
+
+    @property
+    def canonical_role_names(self) -> list[str]:
+        """Return normalized canonical role names with aliases resolved."""
+        from app.core.authorization import ROLE_ALIASES
+
+        names: list[str] = []
+        for r in self.roles:
+            val = r.role.value if hasattr(r.role, "value") else str(r.role)
+            canonical = ROLE_ALIASES.get(val, val)
+            if canonical not in names:
+                names.append(canonical)
+        return names
 
 
 class UserRole(Base):

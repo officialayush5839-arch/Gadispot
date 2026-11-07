@@ -1,6 +1,7 @@
 """Authentication and 2FA endpoints."""
 
 import redis.asyncio as aioredis
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Header, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +16,6 @@ from app.models.users import User
 from app.core.exceptions import ForbiddenException, UnauthorizedException
 from app.schemas.auth import (
     FirebaseExchangeRequest,
-    FirebaseSessionRequest,
     LogoutRequest,
     LogoutResponse,
     MfaChallengeRequest,
@@ -28,7 +28,6 @@ from app.schemas.auth import (
     TotpVerifyRequest,
     TotpVerifyResponse,
     UserProfileResponse,
-    UserSummary,
 )
 from app.services.auth_service import (
     exchange_firebase_token_for_session,
@@ -196,8 +195,6 @@ async def logout(
             jti = decoded.get("jti")
             exp = decoded.get("exp")
             if exp:
-                from datetime import datetime, timezone
-
                 now_ts = datetime.now(timezone.utc).timestamp()
                 ttl = max(1, int(exp - now_ts))
         except Exception:
@@ -233,7 +230,7 @@ async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
 ) -> UserProfileResponse:
     """Return the profile, role assignments, lifecycle status, and granular permissions of the authenticated caller."""
-    role_names = [r.role.value if hasattr(r.role, "value") else str(r.role) for r in current_user.roles]
+    role_names = current_user.role_names
     permissions = get_permissions_for_roles(role_names)
     return UserProfileResponse(
         id=current_user.id,

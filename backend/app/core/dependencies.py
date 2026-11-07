@@ -15,41 +15,52 @@ from sqlalchemy.orm import selectinload
 from app.core.config import Settings, get_settings
 from app.core.exceptions import ForbiddenException, UnauthorizedException
 from app.core.security import decode_token, verify_token_type
-from app.db.session import async_session_factory
+from app.db.session import get_db_session
 from app.models.revoked_token import RevokedToken
 from app.models.session import UserSession
 from app.models.users import AccountStatus, User
 
 logger = logging.getLogger("gadispot.dependencies")
 
+get_db = get_db_session
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency yielding an async SQLAlchemy session with transaction isolation."""
-    async with async_session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+
+def get_redis_client(request: Request | None = None) -> aioredis.Redis:
+    """Obtain a shared Redis client from application state or instantiate a configured client."""
+    if request is not None:
+        app = getattr(request, "app", None)
+        if app is not None and hasattr(app, "state"):
+            client = getattr(app.state, "redis", None)
+            if client is not None:
+                return client
+        elif hasattr(request, "state"):
+            client = getattr(request.state, "redis", None)
+            if client is not None:
+                return client
+
+    settings = get_settings()
+    return aioredis.from_url(
+        settings.REDIS_URL,
+        protocol=settings.REDIS_PROTOCOL,
+        socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
+        socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
+    )
 
 
 async def get_redis(request: Request) -> AsyncGenerator[aioredis.Redis, None]:
     """Dependency providing access to the shared application Redis client."""
-    redis_client = getattr(request.app.state, "redis", None)
-    if redis_client is not None:
-        yield redis_client
+    app = getattr(request, "app", None)
+    shared_client = (
+        getattr(app.state, "redis", None)
+        if app and hasattr(app, "state")
+        else getattr(request.state, "redis", None)
+        if hasattr(request, "state")
+        else None
+    )
+    if shared_client is not None:
+        yield shared_client
     else:
-        # Fallback for isolated test execution where lifespan did not run
-        settings = get_settings()
-        client = aioredis.from_url(
-            settings.REDIS_URL,
-            protocol=settings.REDIS_PROTOCOL,
-            socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
-            socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
-        )
+        client = get_redis_client()
         try:
             yield client
         finally:
@@ -78,23 +89,19 @@ async def get_current_user(
     redis_failed = False
 
     if jti:
-        redis_client = None
         app = getattr(request, "app", None)
-        if app is not None and hasattr(app, "state"):
-            redis_client = getattr(app.state, "redis", None)
-        elif hasattr(request, "state"):
-            redis_client = getattr(request.state, "redis", None)
-
+        shared_client = (
+            getattr(app.state, "redis", None)
+            if app and hasattr(app, "state")
+            else getattr(request.state, "redis", None)
+            if hasattr(request, "state")
+            else None
+        )
+        redis_client = shared_client
         created_client = False
-        if redis_client is None and app is not None:
+        if redis_client is None:
             try:
-                settings = get_settings()
-                redis_client = aioredis.from_url(
-                    settings.REDIS_URL,
-                    protocol=settings.REDIS_PROTOCOL,
-                    socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
-                    socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
-                )
+                redis_client = get_redis_client()
                 created_client = True
             except Exception:
                 redis_client = None

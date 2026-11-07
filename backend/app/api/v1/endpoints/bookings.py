@@ -8,11 +8,11 @@ from typing import Any
 import asyncpg
 from asyncpg.exceptions import ExclusionViolationError
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authorization import get_current_user, verify_resource_ownership
-from app.core.dependencies import get_db
+from app.core.authorization import verify_resource_ownership
+from app.core.dependencies import get_current_user, get_db
 from app.core.exceptions import (
     ConflictException,
     EntityNotFoundException,
@@ -61,16 +61,6 @@ async def create_booking_hold(
     )
 
     try:
-        query = text(
-            """
-            INSERT INTO space_reservations (
-                id, parking_space_id, driver_id, vehicle_id,
-                time_window, reservation_type, status, booking_reference,
-                hold_expires_at, idempotency_key
-            )
-            VALUES ($1, $2, $3, $4, $5, 'TEMPORARY_HOLD', 'ACTIVE_HOLD', $6, $7, $8)
-            """
-        )
         # Execute via connection or session
         conn = await db.connection()
         raw_conn = await conn.get_raw_connection()

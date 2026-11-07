@@ -3,11 +3,12 @@
 from datetime import datetime, timezone
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.dependencies import get_redis_client
 from app.core.logging import logger
 from app.db.session import engine
 from app.schemas.health import (
@@ -32,27 +33,20 @@ async def check_database_connectivity() -> bool:
 
 async def check_redis_connectivity(request: Request) -> bool:
     """Execute ping command against Redis."""
-    client = getattr(request.app.state, "redis", None)
+    app = getattr(request, "app", None)
+    client = getattr(app.state, "redis", None) if app and hasattr(app, "state") else None
     if client is not None:
         try:
-            pong = await client.ping()
-            return bool(pong)
+            return bool(await client.ping())
         except Exception as exc:
             logger.warning(f"Redis state ping failed: {exc}")
             return False
 
     # Fallback to independent connection
-    settings = get_settings()
     try:
-        temp_client = aioredis.from_url(
-            settings.REDIS_URL,
-            protocol=settings.REDIS_PROTOCOL,
-            socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
-            socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
-        )
+        temp_client = get_redis_client()
         try:
-            pong = await temp_client.ping()
-            return bool(pong)
+            return bool(await temp_client.ping())
         finally:
             await temp_client.aclose()
     except Exception as exc:
@@ -84,7 +78,7 @@ async def liveness_probe() -> HealthLiveResponse:
     summary="Readiness Probe",
     description="Checks live connectivity to PostgreSQL and Redis. Returns 200 READY or 503 UNAVAILABLE.",
 )
-async def readiness_probe(request: Request, response: Response) -> JSONResponse:
+async def readiness_probe(request: Request) -> JSONResponse:
     """Readiness probe checking PostgreSQL and Redis connectivity."""
     db_ok = await check_database_connectivity()
     redis_ok = await check_redis_connectivity(request)

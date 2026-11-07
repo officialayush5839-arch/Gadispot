@@ -53,25 +53,12 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "payments:generate-upi-qr",
         "payments:refund:request",
     ],
-    "SPACE_OWNER": [
-        "properties:create",
-        "properties:spaces:create",
-        "properties:schedules:create",
-        "spaces:blackout",
-        "owner:earnings:read",
-    ],
     "OWNER": [
         "properties:create",
         "properties:spaces:create",
         "properties:schedules:create",
         "spaces:blackout",
         "owner:earnings:read",
-    ],
-    "SECURITY_GUARD": [
-        "access:validate-scan",
-        "access:shift-schedule:read",
-        "access:manual-admission",
-        "access:report-obstruction",
     ],
     "GUARD": [
         "access:validate-scan",
@@ -101,6 +88,10 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "spaces:search",
     ],
 }
+# Reconcile PRD alias permissions with canonical definitions
+ROLE_PERMISSIONS["SPACE_OWNER"] = ROLE_PERMISSIONS["OWNER"]
+ROLE_PERMISSIONS["SECURITY_GUARD"] = ROLE_PERMISSIONS["GUARD"]
+ROLE_PERMISSIONS["OPS"] = ROLE_PERMISSIONS["OPERATIONS"]
 
 
 def get_permissions_for_roles(roles: list[str]) -> list[str]:
@@ -255,9 +246,7 @@ async def exchange_firebase_token_for_session(
             )
 
     # 5. Extract roles
-    role_names: list[str] = [r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles]
-    if not role_names:
-        role_names = [UserRoleEnum.DRIVER.value]
+    role_names: list[str] = user.role_names or [UserRoleEnum.DRIVER.value]
 
     # 6. Generate scoped access token and cryptographic refresh token with family tracking
     family_id = uuid.uuid4()
@@ -444,9 +433,7 @@ async def verify_mfa_challenge(
     if not user.is_active:
         raise ForbiddenException(detail="Account is disabled", code="ACCOUNT_DEACTIVATED")
 
-    role_names: list[str] = [r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles]
-    if not role_names:
-        role_names = [UserRoleEnum.DRIVER.value]
+    role_names: list[str] = user.role_names or [UserRoleEnum.DRIVER.value]
 
     family_id = uuid.uuid4()
     token_claims = {
@@ -655,12 +642,7 @@ async def refresh_session_tokens(
             code="ACCOUNT_DEACTIVATED",
         )
 
-    role_names: list[str] = [r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles]
-    token_claims = {
-        "phone_number": user.phone_number,
-        "roles": role_names,
-        "verified": True,
-    }
+    role_names: list[str] = user.role_names or [UserRoleEnum.DRIVER.value]
 
     # 8. Issue fresh access token and new rotating refresh token under same family_id
     family_id = session_rec.family_id or uuid.uuid4()
@@ -785,7 +767,7 @@ async def switch_user_role(
 ) -> dict[str, Any]:
     """Switch active viewport role for users who hold multiple assigned roles (e.g. Driver <-> Space Owner)."""
     normalized_target = target_role.strip().upper()
-    user_role_names = [r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles]
+    user_role_names = user.role_names
 
     allowed_switch_roles = {"DRIVER", "SPACE_OWNER", "OWNER"}
     if normalized_target not in allowed_switch_roles:

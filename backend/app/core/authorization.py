@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import Depends
 
-from app.core.dependencies import get_current_user, get_current_user_optional
+from app.core.dependencies import get_current_user
 from app.core.exceptions import ForbiddenException
 from app.models.enums import UserRoleEnum
 from app.models.users import User
@@ -34,13 +34,8 @@ class RoleChecker:
                 self.allowed_roles.add(ROLE_ALIASES[val])
 
     def __call__(self, user: User = Depends(get_current_user)) -> User:
-        user_role_names: set[str] = set()
-        for r in user.roles:
-            val = r.role.value if hasattr(r.role, "value") else str(r.role)
-            user_role_names.add(val)
-            if val in ROLE_ALIASES:
-                user_role_names.add(ROLE_ALIASES[val])
-
+        user_role_names = {r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles}
+        user_role_names.update({ROLE_ALIASES.get(r, r) for r in user_role_names})
         if not user_role_names.intersection(self.allowed_roles):
             raise ForbiddenException(
                 detail=f"Access denied. User lacks required role. Allowed: {sorted(self.allowed_roles)}",
@@ -65,6 +60,7 @@ def verify_resource_ownership(
     Ensures that the authenticated user either owns the target resource or is an Operations/Admin staff.
     """
     user_role_names = {r.role.value if hasattr(r.role, "value") else str(r.role) for r in user.roles}
+    user_role_names.update({ROLE_ALIASES.get(r, r) for r in user_role_names})
     is_privileged = bool(user_role_names.intersection({UserRoleEnum.ADMIN.value, UserRoleEnum.OPERATIONS.value}))
 
     if allow_privileged and is_privileged:

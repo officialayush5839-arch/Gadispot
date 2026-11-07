@@ -1,6 +1,5 @@
 """Payment Gateway Factory for runtime-swappable gateway adapters."""
 
-from typing import Dict
 from app.core.config import get_settings
 from app.core.exceptions import ValidationException
 from app.integrations.payments.base import PaymentGatewayPort

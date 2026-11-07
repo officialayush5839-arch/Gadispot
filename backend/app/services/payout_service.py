@@ -24,7 +24,6 @@ class PayoutService:
     async def simulate_owner_payout_batch(
         cls,
         db: AsyncSession,
-        owner_id: uuid.UUID | None = None,
     ) -> dict[str, Any]:
         """Aggregate unpaid host balances (Account 2010), disburse funds, and record balanced ledger entry."""
         if settings.is_production or not settings.DEMO_PAYMENTS_ENABLED:

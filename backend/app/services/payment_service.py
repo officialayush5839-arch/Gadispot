@@ -18,7 +18,7 @@ from app.core.exceptions import (
     ValidationException,
 )
 from app.integrations.payments.factory import PaymentGatewayFactory
-from app.models.access import AccessCredential
+from app.models.access import AccessCredential, generate_access_credentials
 from app.models.enums import (
     EntrySideEnum,
     JournalStatusEnum,
@@ -260,26 +260,7 @@ class PaymentService:
             stmt_cred = select(AccessCredential).where(AccessCredential.reservation_id == reservation.id)
             existing_creds = (await db.execute(stmt_cred)).scalars().all()
             if not existing_creds:
-                valid_from = now - timedelta(minutes=15)
-                valid_until = now + timedelta(hours=24)
-                entry_cred = AccessCredential(
-                    id=uuid.uuid4(),
-                    reservation_id=reservation.id,
-                    token_type=TokenTypeEnum.ENTRY,
-                    opaque_token=f"spx_ent_{secrets.token_hex(16)}",
-                    status=TokenStatusEnum.ISSUED,
-                    valid_from=valid_from,
-                    valid_until=valid_until,
-                )
-                exit_cred = AccessCredential(
-                    id=uuid.uuid4(),
-                    reservation_id=reservation.id,
-                    token_type=TokenTypeEnum.EXIT,
-                    opaque_token=f"spx_ext_{secrets.token_hex(16)}",
-                    status=TokenStatusEnum.ISSUED,
-                    valid_from=valid_from,
-                    valid_until=valid_until,
-                )
+                entry_cred, exit_cred = generate_access_credentials(reservation_id=reservation.id)
                 db.add(entry_cred)
                 db.add(exit_cred)
 

@@ -193,17 +193,13 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
 class ProblemDetailsInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    final failure = _mapDioExceptionToFailure(err);
+    final failure = mapDioExceptionToFailure(err);
     // Attach failure to error request options extra for caller retrieval
     err.requestOptions.extra['failure'] = failure;
     handler.next(err);
   }
 
   static Failure mapDioExceptionToFailure(DioException err) {
-    return _mapDioExceptionToFailure(err);
-  }
-
-  static Failure _mapDioExceptionToFailure(DioException err) {
     // 1. Connection / Timeout errors
     if (err.type == DioExceptionType.connectionTimeout ||
         err.type == DioExceptionType.sendTimeout ||

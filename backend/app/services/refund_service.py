@@ -80,13 +80,8 @@ class RefundService:
             )
 
     @classmethod
-    async def mark_refund_eligible(
-        cls,
-        db: AsyncSession,
-        reservation_id: uuid.UUID,
-        reason: str,
-    ) -> SpaceReservation:
-        """Mark a reservation as eligible for refund following cancellation or unfulfillable booking."""
+    async def _get_reservation_for_update(cls, db: AsyncSession, reservation_id: uuid.UUID) -> SpaceReservation:
+        """Fetch locked SpaceReservation row or raise 404 EntityNotFoundException."""
         stmt = select(SpaceReservation).where(SpaceReservation.id == reservation_id).with_for_update()
         result = await db.execute(stmt)
         reservation = result.scalar_one_or_none()
@@ -95,7 +90,17 @@ class RefundService:
                 detail=f"Reservation {reservation_id} not found",
                 code="RESERVATION_NOT_FOUND",
             )
+        return reservation
 
+    @classmethod
+    async def mark_refund_eligible(
+        cls,
+        db: AsyncSession,
+        reservation_id: uuid.UUID,
+        reason: str,
+    ) -> SpaceReservation:
+        """Mark a reservation as eligible for refund following cancellation or unfulfillable booking."""
+        reservation = await cls._get_reservation_for_update(db, reservation_id)
         cls.validate_transition(reservation.refund_status, RefundStatusEnum.REFUND_ELIGIBLE)
         reservation.refund_status = RefundStatusEnum.REFUND_ELIGIBLE
         reservation.refund_failure_reason = None
@@ -110,15 +115,7 @@ class RefundService:
         reason: str,
     ) -> SpaceReservation:
         """Transition refund status to REFUND_REQUESTED and record initiation timestamp."""
-        stmt = select(SpaceReservation).where(SpaceReservation.id == reservation_id).with_for_update()
-        result = await db.execute(stmt)
-        reservation = result.scalar_one_or_none()
-        if not reservation:
-            raise EntityNotFoundException(
-                detail=f"Reservation {reservation_id} not found",
-                code="RESERVATION_NOT_FOUND",
-            )
-
+        reservation = await cls._get_reservation_for_update(db, reservation_id)
         cls.validate_transition(reservation.refund_status, RefundStatusEnum.REFUND_REQUESTED)
         now = datetime.now(timezone.utc)
         reservation.refund_status = RefundStatusEnum.REFUND_REQUESTED
@@ -134,15 +131,7 @@ class RefundService:
         gateway_refund_id: str,
     ) -> SpaceReservation:
         """Record gateway acceptance of refund request."""
-        stmt = select(SpaceReservation).where(SpaceReservation.id == reservation_id).with_for_update()
-        result = await db.execute(stmt)
-        reservation = result.scalar_one_or_none()
-        if not reservation:
-            raise EntityNotFoundException(
-                detail=f"Reservation {reservation_id} not found",
-                code="RESERVATION_NOT_FOUND",
-            )
-
+        reservation = await cls._get_reservation_for_update(db, reservation_id)
         cls.validate_transition(reservation.refund_status, RefundStatusEnum.GATEWAY_ACCEPTED)
         reservation.refund_status = RefundStatusEnum.GATEWAY_ACCEPTED
         reservation.refund_gateway_id = gateway_refund_id
@@ -164,15 +153,7 @@ class RefundService:
                 code="ARN_UTR_REQUIRED",
             )
 
-        stmt = select(SpaceReservation).where(SpaceReservation.id == reservation_id).with_for_update()
-        result = await db.execute(stmt)
-        reservation = result.scalar_one_or_none()
-        if not reservation:
-            raise EntityNotFoundException(
-                detail=f"Reservation {reservation_id} not found",
-                code="RESERVATION_NOT_FOUND",
-            )
-
+        reservation = await cls._get_reservation_for_update(db, reservation_id)
         cls.validate_transition(reservation.refund_status, RefundStatusEnum.REFUND_SETTLED)
         now = datetime.now(timezone.utc)
         reservation.refund_status = RefundStatusEnum.REFUND_SETTLED
@@ -191,15 +172,7 @@ class RefundService:
         failure_reason: str,
     ) -> SpaceReservation:
         """Record refund failure with descriptive reason for operational investigation."""
-        stmt = select(SpaceReservation).where(SpaceReservation.id == reservation_id).with_for_update()
-        result = await db.execute(stmt)
-        reservation = result.scalar_one_or_none()
-        if not reservation:
-            raise EntityNotFoundException(
-                detail=f"Reservation {reservation_id} not found",
-                code="RESERVATION_NOT_FOUND",
-            )
-
+        reservation = await cls._get_reservation_for_update(db, reservation_id)
         cls.validate_transition(reservation.refund_status, RefundStatusEnum.REFUND_FAILED)
         reservation.refund_status = RefundStatusEnum.REFUND_FAILED
         reservation.refund_failure_reason = failure_reason[:500]

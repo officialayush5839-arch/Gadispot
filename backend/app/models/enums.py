@@ -134,3 +134,11 @@ class PaymentProviderEnum(str, enum.Enum):
     CASHFREE = "CASHFREE"
     HYPERSWITCH = "HYPERSWITCH"
     YOUPI = "YOUPI"
+
+
+class AccountStatus(str, enum.Enum):
+    """Account lifecycle status for authorization and access enforcement."""
+
+    ACTIVE = "ACTIVE"
+    DISABLED = "DISABLED"
+    SUSPENDED = "SUSPENDED"

@@ -1,7 +1,8 @@
 """SQLAlchemy declarative models for access credentials and offline manual admissions."""
 
+import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import (
@@ -53,6 +54,37 @@ class AccessCredential(Base):
     guard: Mapped[Optional["User"]] = relationship("User")  # type: ignore # noqa: F821
 
     __table_args__ = (Index("idx_access_credentials_res", "reservation_id", "token_type"),)
+
+
+def generate_access_credentials(
+    reservation_id: uuid.UUID,
+    valid_from: datetime | None = None,
+    valid_until: datetime | None = None,
+) -> tuple[AccessCredential, AccessCredential]:
+    """Generate cryptographically secure 128-bit CSPRNG Entry and Exit credentials with ingress window."""
+    now = datetime.now(timezone.utc)
+    v_from = valid_from or (now - timedelta(minutes=15))
+    v_until = valid_until or (now + timedelta(hours=24))
+
+    entry_cred = AccessCredential(
+        id=uuid.uuid4(),
+        reservation_id=reservation_id,
+        token_type=TokenTypeEnum.ENTRY,
+        opaque_token=f"spx_ent_{secrets.token_hex(16)}",
+        status=TokenStatusEnum.ISSUED,
+        valid_from=v_from,
+        valid_until=v_until,
+    )
+    exit_cred = AccessCredential(
+        id=uuid.uuid4(),
+        reservation_id=reservation_id,
+        token_type=TokenTypeEnum.EXIT,
+        opaque_token=f"spx_ext_{secrets.token_hex(16)}",
+        status=TokenStatusEnum.ISSUED,
+        valid_from=v_from,
+        valid_until=v_until,
+    )
+    return entry_cred, exit_cred
 
 
 class OfflineManualAdmission(Base):

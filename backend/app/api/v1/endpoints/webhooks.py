@@ -146,7 +146,12 @@ async def handle_payment_webhook(
         )
         res_result = await db.execute(res_stmt)
         reservation = res_result.scalar_one_or_none()
-        if reservation and event.refund_status == "REFUND_SETTLED" and event.refund_arn_utr:
+        if (
+            reservation
+            and event.refund_status
+            and event.refund_status.upper() in ("REFUND_SETTLED", "SETTLED")
+            and event.refund_arn_utr
+        ):
             try:
                 await RefundService.record_refund_settled(
                     db=db,
