@@ -144,6 +144,7 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
               },
             ),
           );
+          refreshDio.httpClientAdapter = dio.httpClientAdapter;
 
           final refreshResp = await refreshDio.post<Map<String, dynamic>>(
             '/api/v1/auth/refresh',

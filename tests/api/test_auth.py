@@ -362,6 +362,15 @@ async def test_login_requires_totp_when_enabled_and_completes_via_challenge(db_s
         )
         assert me_resp.status_code == 200
 
+        # 6b. Replay attack: Replaying the consumed mfa_token must be rejected (one-time consumption)
+        replay_code = pyotp.TOTP(secret).now()
+        replay_chal_resp = await client.post(
+            "/api/v1/auth/2fa/challenge",
+            json={"mfa_token": mfa_token, "totp_code": replay_code},
+        )
+        assert replay_chal_resp.status_code == 401
+        assert replay_chal_resp.json()["code"] == "MFA_CHALLENGE_ALREADY_USED"
+
         # 7. Direct login supplying totp_code in initial payload also succeeds
         direct_code = pyotp.TOTP(secret).now()
         direct_resp = await client.post(
@@ -553,3 +562,112 @@ async def test_individual_access_token_logout_persisted_to_revoked_tokens_table_
             check_resp = await client.get("/api/v1/auth/me", headers=headers)
             assert check_resp.status_code == 401
             assert check_resp.json()["code"] == "TOKEN_REVOKED"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_mfa_challenge_replay_rejection(db_session):
+    """Verify that concurrent requests attempting to consume the same MFA challenge token cannot both succeed."""
+    import asyncio
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        phone = f"+9198{uuid.uuid4().hex[:8]}"
+        id_token = f"test-token-mfa-race:{phone}"
+
+        # 1. Login and setup 2FA
+        auth_resp = await client.post(
+            "/api/v1/auth/session", json={"id_token": id_token}
+        )
+        assert auth_resp.status_code == 200
+        headers = {"Authorization": f"Bearer {auth_resp.json()['access_token']}"}
+
+        setup_resp = await client.post("/api/v1/auth/2fa/setup", headers=headers)
+        secret = setup_resp.json()["secret"]
+        code = pyotp.TOTP(secret).now()
+        await client.post(
+            "/api/v1/auth/2fa/verify", headers=headers, json={"code": code}
+        )
+
+        # 2. Trigger login challenge to get mfa_token
+        chal_req = await client.post(
+            "/api/v1/auth/session", json={"id_token": id_token}
+        )
+        assert chal_req.status_code == 403
+        mfa_token = chal_req.json()["mfa_token"]
+
+        # 3. Concurrently dispatch 2 challenge requests with the exact same mfa_token
+        valid_code = pyotp.TOTP(secret).now()
+        res1, res2 = await asyncio.gather(
+            client.post(
+                "/api/v1/auth/2fa/challenge",
+                json={"mfa_token": mfa_token, "totp_code": valid_code},
+            ),
+            client.post(
+                "/api/v1/auth/2fa/challenge",
+                json={"mfa_token": mfa_token, "totp_code": valid_code},
+            ),
+            return_exceptions=True,
+        )
+
+        status_codes = [
+            r.status_code for r in (res1, res2) if hasattr(r, "status_code")
+        ]
+        # Exactly one request must succeed (200), and the other must be rejected (401 MFA_CHALLENGE_ALREADY_USED)
+        assert 200 in status_codes
+        assert 401 in status_codes
+
+        err_resp = res1 if res1.status_code == 401 else res2
+        assert err_resp.json()["code"] == "MFA_CHALLENGE_ALREADY_USED"
+
+
+@pytest.mark.asyncio
+async def test_mfa_challenge_replay_rejection_when_redis_is_down(db_session):
+    """Verify that when Redis is unreachable, persistent PostgreSQL fallback rejects MFA challenge replays."""
+    from unittest.mock import AsyncMock, patch
+    import redis.asyncio as aioredis
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        phone = f"+9198{uuid.uuid4().hex[:8]}"
+        id_token = f"test-token-mfa-redis-down:{phone}"
+
+        # 1. Login and setup 2FA
+        auth_resp = await client.post(
+            "/api/v1/auth/session", json={"id_token": id_token}
+        )
+        headers = {"Authorization": f"Bearer {auth_resp.json()['access_token']}"}
+
+        setup_resp = await client.post("/api/v1/auth/2fa/setup", headers=headers)
+        secret = setup_resp.json()["secret"]
+        code = pyotp.TOTP(secret).now()
+        await client.post(
+            "/api/v1/auth/2fa/verify", headers=headers, json={"code": code}
+        )
+
+        # 2. Get challenge token
+        chal_req = await client.post(
+            "/api/v1/auth/session", json={"id_token": id_token}
+        )
+        mfa_token = chal_req.json()["mfa_token"]
+
+        # 3. Simulate Redis outage
+        with patch("app.core.dependencies.aioredis.from_url") as mock_redis_factory:
+            mock_client = AsyncMock()
+            mock_client.set.side_effect = aioredis.ConnectionError("Redis down")
+            mock_client.get.side_effect = aioredis.ConnectionError("Redis down")
+            mock_redis_factory.return_value = mock_client
+
+            # First consumption succeeds even with Redis down (persisted in postgres)
+            c1_resp = await client.post(
+                "/api/v1/auth/2fa/challenge",
+                json={"mfa_token": mfa_token, "totp_code": pyotp.TOTP(secret).now()},
+            )
+            assert c1_resp.status_code == 200
+
+            # Replay attempt with Redis down MUST be caught by PostgreSQL fallback check
+            c2_resp = await client.post(
+                "/api/v1/auth/2fa/challenge",
+                json={"mfa_token": mfa_token, "totp_code": pyotp.TOTP(secret).now()},
+            )
+            assert c2_resp.status_code == 401
+            assert c2_resp.json()["code"] == "MFA_CHALLENGE_ALREADY_USED"

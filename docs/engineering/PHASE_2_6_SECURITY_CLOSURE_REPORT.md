@@ -12,7 +12,7 @@
 
 This report documents the final security closure, concurrency race elimination, and adversarial regression verification of **Strategic Phase 2.6: Security Closure, Hardening & Adversarial Regression** for the Gadispot platform.
 
-Following the closure of Phase 2.5, a rigorous independent source-code audit at commit `15c5b1c` identified 6 critical implementation discrepancies and subtle concurrency races:
+Following the closure of Phase 2.5, a rigorous independent source-code audit at commit `df15a58` identified 6 critical implementation discrepancies and subtle concurrency races:
 1. **TOTP Login Enforcement & Challenge:** 2FA enrollment existed, but login flows (`/auth/exchange` and `/auth/session`) did not challenge for 2FA when `totp_enabled` was True.
 2. **TOTP Re-enrollment Factor Protection:** Calling `/2fa/setup` overwrote the stored secret and disabled active 2FA without requiring proof of the current factor.
 3. **Refresh Concurrency vs. Family Revocation Race:** Legitimate concurrent refresh calls triggered reuse detection and revoked the winning replacement session instead of accommodating client retry concurrency under OAuth 2.0 Security BCP §4.14.2.

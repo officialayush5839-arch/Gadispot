@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import logging
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -218,9 +219,14 @@ async def exchange_firebase_token_for_session(
     # 4b. Enforce Two-Factor Authentication (TOTP) if enrolled
     if getattr(user, "totp_enabled", False):
         if not totp_code:
+            challenge_jti = str(uuid.uuid4())
             mfa_token = create_access_token(
                 subject=str(user.id),
-                claims={"type": "mfa_challenge", "phone_number": user.phone_number},
+                claims={
+                    "type": "mfa_challenge",
+                    "jti": challenge_jti,
+                    "phone_number": user.phone_number,
+                },
                 expires_delta=timedelta(minutes=5),
             )
             raise ForbiddenException(
@@ -319,16 +325,45 @@ async def verify_mfa_challenge(
     db: AsyncSession,
     mfa_token: str,
     totp_code: str,
+    redis: aioredis.Redis | None = None,
     ip_address: str | None = None,
     device_info: str | None = None,
 ) -> dict[str, Any]:
-    """Verify MFA challenge token and TOTP code to establish an authenticated session."""
+    """Verify MFA challenge token and TOTP code with atomic one-time challenge consumption to establish session."""
     settings = get_settings()
     claims = decode_token(mfa_token)
     if claims.get("type") != "mfa_challenge":
         raise UnauthorizedException(
             detail="Invalid challenge token",
             code="INVALID_CHALLENGE_TOKEN",
+        )
+
+    challenge_jti = claims.get("jti")
+    if not challenge_jti:
+        raise UnauthorizedException(
+            detail="Malformed challenge token: missing unique identifier.",
+            code="INVALID_CHALLENGE_TOKEN",
+        )
+
+    # 1. Check if challenge has already been consumed in Redis or Database
+    if redis:
+        try:
+            is_consumed = await redis.get(f"mfa:challenge:consumed:{challenge_jti}")
+            if is_consumed:
+                logger.warning("MFA challenge replay detected via Redis for JTI %s", challenge_jti)
+                raise UnauthorizedException(
+                    detail="MFA challenge token has already been consumed.",
+                    code="MFA_CHALLENGE_ALREADY_USED",
+                )
+        except aioredis.RedisError:
+            pass
+
+    db_check = await db.execute(select(RevokedToken).where(RevokedToken.jti == challenge_jti))
+    if db_check.scalar_one_or_none():
+        logger.warning("MFA challenge replay detected via database for JTI %s", challenge_jti)
+        raise UnauthorizedException(
+            detail="MFA challenge token has already been consumed.",
+            code="MFA_CHALLENGE_ALREADY_USED",
         )
 
     user_id_str = claims.get("sub")
@@ -364,7 +399,43 @@ async def verify_mfa_challenge(
             code="INVALID_TOTP_CODE",
         )
 
-    # Enforce account lifecycle & status
+    # 2. TOTP code is valid: atomically consume the challenge token (Redis SET NX + DB primary key lock)
+    now_ts = int(time.time())
+    exp_ts = int(claims.get("exp", now_ts + 300))
+    challenge_ttl = max(1, exp_ts - now_ts)
+    if redis:
+        try:
+            was_set = await redis.set(f"mfa:challenge:consumed:{challenge_jti}", "1", nx=True, ex=challenge_ttl)
+            if not was_set:
+                logger.warning("Concurrent MFA challenge replay detected via Redis for JTI %s", challenge_jti)
+                raise UnauthorizedException(
+                    detail="MFA challenge token has already been consumed.",
+                    code="MFA_CHALLENGE_ALREADY_USED",
+                )
+        except aioredis.RedisError:
+            pass
+
+    now_utc = datetime.now(timezone.utc)
+    exp_dt = datetime.fromtimestamp(exp_ts, tz=timezone.utc)
+    try:
+        async with db.begin_nested():
+            consumed_entry = RevokedToken(
+                jti=challenge_jti,
+                user_id=user.id,
+                family_id=None,
+                expires_at=exp_dt,
+                revoked_at=now_utc,
+            )
+            db.add(consumed_entry)
+            await db.flush()
+    except IntegrityError:
+        logger.warning("Concurrent MFA challenge consumption race detected for JTI %s", challenge_jti)
+        raise UnauthorizedException(
+            detail="MFA challenge token has already been consumed.",
+            code="MFA_CHALLENGE_ALREADY_USED",
+        )
+
+    # 4. Enforce account lifecycle & status
     if hasattr(user, "status"):
         if user.status == AccountStatus.SUSPENDED:
             raise ForbiddenException(detail="Account has been suspended", code="ACCOUNT_SUSPENDED")
@@ -403,6 +474,16 @@ async def verify_mfa_challenge(
     )
     db.add(session_rec)
     await db.flush()
+
+    await AuditService.log_event(
+        db=db,
+        action="AUTH_MFA_CHALLENGE_VERIFIED",
+        resource_type="USER",
+        resource_id=str(user.id),
+        actor_id=user.id,
+        details={"challenge_jti": challenge_jti, "family_id": str(family_id)},
+        ip_address=ip_address,
+    )
 
     return {
         "access_token": access_token,

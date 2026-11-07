@@ -30,7 +30,7 @@ All 11 Acceptance Gates have passed with 100% executable evidence, and all 114 b
 
 - **Repository:** `https://github.com/officialayush5839-arch/Gadispot`
 - **Starting Git Branch:** `main`
-- **Phase 02 Verified Baseline Commit:** `7e87623` (GitHub Actions Run `42202604629`)
+- **Phase 02 Verified Baseline Commit:** `62ed138` (Clean Consolidated Phase 02 Baseline)
 - **Initial Test Suite:** 108 backend pytest tests, 37 Flutter unit tests.
 - **Frozen Specifications:** The 6 core governance files (`PRD.md`, `goal.md`, `rules.md`, `architecture.md`, `phases.md`, `task.md`) were frozen and validated via SHA-256 hashes in `scripts/validate_spec.py`.
 

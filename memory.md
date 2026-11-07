@@ -6,9 +6,9 @@
 > **Target Pilot Geography:** Bengaluru Urban Metro, Karnataka, India (Koramangala, Indiranagar, HSR Layout — 200 Pilot Bays)  
 > **Target Execution Platforms:** Mobile-Only (Single Cross-Platform Flutter Mobile Binary for Android & iOS)  
 > **Backend Architecture:** In-Process Modular Monolith (Python 3.12 / FastAPI / PostgreSQL 16 + PostGIS + `btree_gist` / Redis 7.0+)  
-> **Test Verification Baseline:** 120/120 Executable Backend Pytest Tests Passing (100% Green); 37 Flutter Tests Passing (100% Green)  
+> **Test Verification Baseline:** 122/122 Executable Backend Pytest Tests Passing (100% Green); 49 Flutter Tests Passing (100% Green in CI)  
 > **Specification Harmonization:** 100% Green via `scripts/validate_spec.py` (0 banned patterns, 100% link integrity, 6/6 frozen files validated)  
-> **Current Engineering Status:** `Strategic Phase 2.6 COMPLETE — Security Closure, Hardening & Adversarial Regression Verified` (Ready for Phase 03: Parking Space Inventory & Onboarding)  
+> **Current Engineering Status:** `Strategic Phase 2.6.1 COMPLETE — MFA Replay Protection & Mobile Refresh Proof Verified` (Ready for Phase 03: Parking Space Inventory & Onboarding)  
 > **Last Verification Date:** November 7, 2026  
 
 ---
@@ -23,8 +23,8 @@ Document Identity Matrix
 --------------------------------------------------------------------------------------------------------
 Document Title            : Gadispot Master Project Context & Agent Continuity Memory
 Repository File Path      : memory.md
-Document Version          : 1.2.6 (Phase 2.6 Security Closure Baseline)
-Context Freeze Status     : STRATEGIC PHASE 2.6 COMPLETE (VERIFIED)
+Document Version          : 1.2.7 (Phase 2.6.1 Security Closure Baseline)
+Context Freeze Status     : STRATEGIC PHASE 2.6.1 COMPLETE (VERIFIED)
 Last Verified Date        : November 7, 2026
 Verified Execution Host   : Windows Host (Python 3.14.6 / PostgreSQL 16.14 on localhost:5432)
 CI Target Environment     : Ubuntu Latest (Python 3.11 / PostgreSQL 16 Container)
@@ -189,7 +189,7 @@ Per [docs/product/BUSINESS_ASSUMPTIONS.md](docs/product/BUSINESS_ASSUMPTIONS.md)
   - `POL-SUB-01` `[PROPOSED]`: ₹100 maximum GPRP price subsidy cap (`ASM-010`).
 
 ### 2.6 Strategic Delivery Lifecycle & Freeze Status
-- **Current Lifecycle Phase:** `Phase 01 Complete` / `Phase 02 Ready for Kickoff`.
+- **Current Lifecycle Phase:** `Phase 01 / Phase 02 / Phase 2.5 / Phase 2.6 / Phase 2.6.1 Complete` / `Phase 03 Ready for Kickoff`.
 - **Engineering Status:** `STATUS B — CONDITIONAL SPECIFICATION FREEZE (VERIFIED)`. Specifications, database models, and Phase 01 engineering foundation verified 100% green; Phase 02 application authoring authorized.
 - **Commercial Pilot Launch Status:** `GATED ON EXTERNAL RAILS`. Commercial deployment is gated on 5 external statutory deliverables (`DEP-PAY-01`, `DEP-TEL-01`, `DEP-LEG-01`, `DEP-LEG-02`, `DEP-LEG-03`).
 

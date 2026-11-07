@@ -309,7 +309,22 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 
 ---
 
-## 17. Audit & Governance Signoff
+## 17. Strategic Phase 2.6.1: MFA Replay Protection & Mobile Refresh Proof
+
+**Goal:** Eliminate MFA challenge token reusability by assigning unique `jti` and enforcing atomic one-time consumption across Redis and PostgreSQL savepoints; empirically prove mobile concurrent 401 refresh resolution and token update in Flutter client; document refresh grace-period zero-leakage security posture.  
+**Status:** **COMPLETED**  
+**Lead:** Principal Application Security Engineer & Mobile Architect  
+**Prerequisites:** Phase 2.6 Completion  
+
+| Task ID | Task Title | Role | Status | Description | Deliverables | Verification Criteria |
+|---|---|---|:---:|---|---|---|
+| `TSK-P261-001` | Atomic One-Time MFA Challenge Consumption | App Security Engineer | **COMPLETED** | Embed unique `jti` in `mfa_token` claims; enforce atomic check and burn in Redis (`SET NX`) and PostgreSQL `revoked_tokens` table on verification; reject replays with 401 `MFA_CHALLENGE_ALREADY_USED`. | `backend/app/services/auth_service.py`, `backend/app/api/v1/endpoints/auth.py`. | Validated via `tests/api/test_auth.py::test_login_requires_totp_when_enabled_and_completes_via_challenge`, `test_concurrent_mfa_challenge_replay_rejection`, `test_mfa_challenge_replay_rejection_when_redis_is_down`. |
+| `TSK-P261-002` | Mobile Concurrent 401 Refresh Empirical Verification | Senior Flutter Engineer | **COMPLETED** | Forward `httpClientAdapter` to `refreshDio`; add mock HTTP adapter test simulating successful token rotation; verify single refresh call, automatic 200 retries, and secure storage updates. | `mobile/lib/core/network/api_client.dart`, `mobile/test/core/refresh_interceptor_test.dart`. | Validated via `mobile/test/core/refresh_interceptor_test.dart` ("concurrent 401s coordinate on single refresh and retry successfully"). |
+| `TSK-P261-003` | Refresh Grace-Period Policy & Audit Documentation | App Security Engineer | **COMPLETED** | Formulate comprehensive Phase 2.6.1 security closure report documenting zero-leakage rationale (409 Conflict vs re-transmitting tokens), test evidence, and updated verification matrices. | `docs/engineering/PHASE_2_6_1_SECURITY_REPORT.md`, `docs/engineering/PHASE_2_6_VALIDATION_MATRIX.md`. | Verified via forensic review and documentation signoff. |
+
+---
+
+## 18. Audit & Governance Signoff
 
 | Role | Name / Persona | Status | Date |
 |---|---|:---:|:---:|
@@ -319,4 +334,5 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 | Lead IAM & Security Architect | Antigravity Phase 02 Lead | **APPROVED** | 2026-11-06 |
 | Independent Application Security Lead | Antigravity Phase 2.5 Lead | **VERIFIED** | 2026-11-07 |
 | Principal Systems & Security Architect | Antigravity Phase 2.6 Lead | **VERIFIED** | 2026-11-07 |
+| Principal Security & Mobile Architect | Antigravity Phase 2.6.1 Lead | **VERIFIED** | 2026-11-07 |
 

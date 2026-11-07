@@ -120,6 +120,7 @@ async def challenge_totp(
     payload: MfaChallengeRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
 ) -> TokenResponse:
     """Verify MFA challenge token and TOTP code to establish an authenticated session."""
     ip_addr = request.client.host if request.client else None
@@ -128,6 +129,7 @@ async def challenge_totp(
         db=db,
         mfa_token=payload.mfa_token,
         totp_code=payload.totp_code,
+        redis=redis,
         ip_address=ip_addr,
         device_info=device_info,
     )
