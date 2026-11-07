@@ -189,8 +189,8 @@ Per [docs/product/BUSINESS_ASSUMPTIONS.md](docs/product/BUSINESS_ASSUMPTIONS.md)
   - `POL-SUB-01` `[PROPOSED]`: ₹100 maximum GPRP price subsidy cap (`ASM-010`).
 
 ### 2.6 Strategic Delivery Lifecycle & Freeze Status
-- **Current Lifecycle Phase:** `Phase 00 Complete` / `Phase 01 Active (Sprint 01 Kickoff)`.
-- **Engineering Status:** `STATUS B — CONDITIONAL SPECIFICATION FREEZE (VERIFIED)`. Specifications and database concurrency models are mathematically proven; application code authoring is authorized.
+- **Current Lifecycle Phase:** `Phase 01 Complete` / `Phase 02 Ready for Kickoff`.
+- **Engineering Status:** `STATUS B — CONDITIONAL SPECIFICATION FREEZE (VERIFIED)`. Specifications, database models, and Phase 01 engineering foundation verified 100% green; Phase 02 application authoring authorized.
 - **Commercial Pilot Launch Status:** `GATED ON EXTERNAL RAILS`. Commercial deployment is gated on 5 external statutory deliverables (`DEP-PAY-01`, `DEP-TEL-01`, `DEP-LEG-01`, `DEP-LEG-02`, `DEP-LEG-03`).
 
 ---
@@ -940,7 +940,7 @@ All AI coding agents, human contributors, and technical subagents modifying this
   2. Authoring of a new architectural subsystem, router, or mobile shell.
   3. Execution of new automated tests that change the verified test baseline.
   4. Formal founder signoff converting a `PROPOSED` policy to `FOUNDER_APPROVED`.
-  5. Regulatory clearance of any blocked statutory rail (`DEP-LEG-01..03`, `DEP-PAY-01`, `DEP-TEL-01`).
+  5. Regulatory clearance of any blocked statutory rail (`DEP-PAY-01`, `DEP-TEL-01`, `DEP-LEG-01`, `DEP-LEG-02`, `DEP-LEG-03`).
 
 ---
 

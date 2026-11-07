@@ -19,10 +19,10 @@
 | **GATE-01** | Repository & Developer Setup | **PASS** | `git status -s`, `git branch -v`, directory inspection, ignore rules audit | Working tree clean, branch `main`, no tracked secrets or local absolute paths; `.gitignore` and `.dockerignore` properly configured; canonical dev commands documented in `README.md`. | None. |
 | **GATE-02** | Backend Foundation | **PASS** | `python -m ruff check backend/`, `python -m ruff format --check backend/`, FastAPI lifespan check | Ruff linter passes 0 violations; 56 backend files formatted; async lifespan manages PostgreSQL and Redis connections safely; liveness and readiness endpoints return HTTP 200. | None. |
 | **GATE-03** | Database Foundation | **PASS** | `python -m alembic -c backend/alembic.ini current`, `pytest tests/database/` | Alembic at head `003_demo_payments`; PostgreSQL 16 `btree_gist` temporal exclusion and Zero Child Lock plpgsql triggers verified with zero deadlocks under 50 concurrent workers. | None. |
-| **GATE-04** | Flutter Mobile Foundation | **PASS** | `python scripts/validate_mobile_spec.py`, GitHub Actions CI run `42183290733` (`mobile-quality`) | All 36 clean architecture files verified; `pubspec.yaml` dependencies pinned; 37 Flutter widget/unit tests pass 100% green; zero analyzer errors (`flutter analyze --no-fatal-infos`). | Windows host environment lacks local Flutter SDK install; mobile analysis and tests verified via Ubuntu CI runner. iOS native build requires macOS runner. |
+| **GATE-04** | Flutter Mobile Foundation | **PASS** | `python scripts/validate_mobile_spec.py`, GitHub Actions CI run `42186450485` (`mobile-quality`) | All 36 clean architecture files verified; `pubspec.yaml` dependencies pinned; 37 Flutter widget/unit tests pass 100% green; zero analyzer errors (`flutter analyze --no-fatal-infos`). | Windows host environment lacks local Flutter SDK install; mobile analysis and tests verified via Ubuntu CI runner. iOS native build requires macOS runner. |
 | **GATE-05** | Local Development Infrastructure | **PASS** | `python scripts/validate_docker_spec.py`, `docker-compose.yml` inspection | Multi-stage Dockerfile with non-root user `gadispot (1000)`; Compose specifies `postgres` (PostGIS 16-3.4), `redis` (7-alpine), `backend` with healthchecks; one-command dev scripts `dev_up.*` and `dev_down.*` verified. | Local Docker daemon execution on Windows requires Docker Desktop running. |
 | **GATE-06** | Automated Testing & Test Isolation | **PASS** | `python -m pytest tests/ -v` (consecutive runs) | 84/84 pytest tests passed in 41.07s with 0 errors, 0 failures, and 0 warnings; session-scoped asyncpg connection pool eliminates socket starvation; zero teardown deadlocks; full e2e booking lifecycle passes cleanly. | None. |
-| **GATE-07** | CI/CD & Automated Quality Gates | **PASS** | `gh run view 42183290733`, `.github/workflows/spec-validation.yml` inspection | All 4 remote CI jobs pass 100% green (`Specification Validation`, `Backend Linting`, `PostGIS 16 & Redis Tests`, `Flutter Analysis & Widget Tests`) on commit `613d806`. | Node.js 20 deprecation warning emitted by GitHub Actions runner (non-blocking). |
+| **GATE-07** | CI/CD & Automated Quality Gates | **PASS** | `gh run view 42186450485`, `.github/workflows/spec-validation.yml` inspection | All 4 remote CI jobs pass 100% green (`Specification Validation`, `Backend Linting`, `PostGIS 16 & Redis Tests`, `Flutter Analysis & Widget Tests`) on commit `0e213e4`. | Node.js 20 deprecation warning emitted by GitHub Actions runner (non-blocking). |
 | **GATE-08** | Security & Configuration Foundations | **PASS** | `pytest tests/api/test_config.py`, `tests/security/test_security_gates.py`, `.env.example` review | Safe `.env.example` with placeholders; Pydantic fail-closed validator strictly forbids `demo` payment mode and `debug` mode in production; PII filter scrubs passwords/tokens/keys; 128-bit CSPRNG access tokens verified. | None. |
 | **GATE-09** | Engineering Documentation & Traceability | **PASS** | `python scripts/validate_spec.py`, tracker audit | Zero broken markdown relative links; strategic roadmap (`phases.md`) cleanly decoupled from technical sprint work packages (M0–M10); all Phase 01 tasks mapped to concrete test evidence. | None. |
 | **GATE-10** | Architecture Preservation & Phase Boundaries | **PASS** | Codebase audit against PRD V2.3.2 and `phases.md` §6.2 | Preserved modular monolith, mobile-only Flutter client, PostgreSQL 16 + PostGIS, Redis 7, double-entry ledger, and separated QR systems; zero Phase 02+ business functionality implemented prematurely. | None. |
@@ -57,7 +57,7 @@
 - **Inspection:** `mobile/pubspec.yaml` (`name: gadispot_mobile`), Clean Architecture layout (`lib/core/`, `lib/features/`, `lib/shells/`), theme tokens (`lib/core/theme/app_theme.dart`), API client (`lib/core/network/api_client.dart`), secure storage (`lib/core/storage/secure_storage_service.dart`).
 - **Validation:**
   - `python scripts/validate_mobile_spec.py` -> All 6 specification checks passed (36 files, pubspec metadata, analysis_options strictness, anti-slop check, RFC 7807 problem details, domain regex).
-  - Remote CI GitHub Actions run `42183290733` (`mobile-quality`) -> 37 tests passed, 0 analyzer errors.
+  - Remote CI GitHub Actions run `42186450485` (`mobile-quality`) -> 37 tests passed, 0 analyzer errors.
   - Import verification: `mobile/lib/features/payments/presentation/demo_payment_view.dart` and `mobile/test/features/payments/demo_payment_view_test.dart` both import `package:gadispot_mobile/...` cleanly.
 - **Result:** `PASS`.
 
@@ -79,11 +79,11 @@
 ### Workstream 07 — CI/CD & Automated Quality Gates
 - **Inspection:** `.github/workflows/spec-validation.yml` defining 4 concurrent jobs: `validate-specifications`, `backend-quality`, `backend-database-tests`, `mobile-quality`.
 - **Validation:**
-  - Verified remote GitHub Actions run `42183290733` on `main`:
+  - Verified remote GitHub Actions run `42186450485` on `main`:
     - `Specification & Docker Architecture Validation`: PASS (10s).
-    - `Backend Linting & Formatting Check`: PASS (6s).
-    - `PostGIS 16 & Redis Integration Tests`: PASS (1m11s).
-    - `Flutter Analysis & Widget Tests`: PASS (40s - 37 tests passed).
+    - `Backend Linting & Formatting Check`: PASS (7s).
+    - `PostGIS 16 & Redis Integration Tests`: PASS (1m01s).
+    - `Flutter Analysis & Widget Tests`: PASS (28s - 37 tests passed).
 - **Result:** `PASS`.
 
 ### Workstream 08 — Security & Configuration Foundations

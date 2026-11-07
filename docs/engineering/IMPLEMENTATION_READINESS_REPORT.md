@@ -223,6 +223,8 @@ The internal engineering foundation is 100% complete and self-contained. The fol
    - Backend ledger strictly isolates gross tariff, platform convenience fee, and GST liability into independent accounts.
 4. **`DEP-LEG-02` (Bengaluru BBMP Residential Parking Bylaw Clearance):**
    - Monitored by the operations team using the Property Verification Runbook (`docs/operations/RUNBOOK.md`).
+5. **`DEP-LEG-03` (Bilateral Non-Bailment Terms of Service):**
+   - Standardized bilateral license agreement under Information Technology Act Section 79 establishing platform intermediary and non-bailment status.
 
 ---
 

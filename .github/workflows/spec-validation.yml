@@ -17,7 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install Validation Dependencies
         run: |
@@ -38,7 +38,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install Linting Tools
         run: |
@@ -50,7 +50,7 @@ jobs:
 
       - name: Run Ruff Formatter Check
         run: |
-          ruff format --check backend/ || echo "Formatting suggestions logged."
+          ruff format --check backend/
 
   backend-database-tests:
     name: PostGIS 16 & Redis Integration Tests
@@ -88,7 +88,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install Dependencies
         run: |
@@ -120,12 +120,28 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.x'
           channel: 'stable'
           cache: true
+
+      - name: Scaffold Android Platform Wrapper
+        run: |
+          if [ ! -d "android" ]; then
+            cp pubspec.yaml pubspec.yaml.bak
+            flutter create . --org com.gadispot --platforms=android
+            mv pubspec.yaml.bak pubspec.yaml
+            git checkout lib/ test/ analysis_options.yaml pubspec.yaml 2>/dev/null || true
+            python ../scripts/configure_mobile_android.py .
+          fi
 
       - name: Install Flutter Dependencies
         run: flutter pub get
@@ -135,3 +151,6 @@ jobs:
 
       - name: Run Flutter Widget Tests
         run: flutter test
+
+      - name: Build Android Debug APK
+        run: flutter build apk --debug
