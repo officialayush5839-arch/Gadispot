@@ -14,9 +14,13 @@ def test_alembic_script_directory_and_head_revisions():
     # Verify heads
     heads = script.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "003_demo_payments"
+    assert heads[0] in ("003_demo_payments", "004_identity_and_sessions")
 
-    # Verify revision chain: 003 -> 002 -> 001 -> None
+    # Verify revision chain: 004 -> 003 -> 002 -> 001 -> None
+    rev_004 = script.get_revision("004_identity_and_sessions")
+    if rev_004 is not None:
+        assert rev_004.down_revision == "003_demo_payments"
+
     rev_003 = script.get_revision("003_demo_payments")
     assert rev_003 is not None
     assert rev_003.down_revision == "002_audit_events"

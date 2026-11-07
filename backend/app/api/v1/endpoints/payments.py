@@ -7,16 +7,20 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authorization import get_current_user
+from app.core.authorization import (
+    get_current_user,
+    require_roles,
+    verify_resource_ownership,
+)
 from app.core.config import settings
-from app.core.dependencies import get_db
+from app.core.dependencies import get_current_user_optional, get_db
 from app.core.exceptions import EntityNotFoundException, ValidationException
 from app.integrations.payments.factory import PaymentGatewayFactory
 from app.integrations.payments.upi_qr_service import (
     build_upi_payment_uri,
     generate_upi_qr_base64,
 )
-from app.models.enums import RefundStatusEnum
+from app.models.enums import RefundStatusEnum, UserRoleEnum
 from app.models.reservations import SpaceReservation
 from app.models.users import User
 from app.schemas.payments import (
@@ -204,7 +208,7 @@ async def cancel_payment(
     summary="Trigger simulated host earnings payout batch",
 )
 async def simulate_owner_payout(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(UserRoleEnum.OPERATIONS, UserRoleEnum.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ) -> PayoutBatchResponse:
     """Disburse accumulated host liability balances (Account 2010) in demo mode."""
@@ -311,6 +315,7 @@ async def generate_upi_qr(
 )
 async def request_refund(
     payload: RefundRequest,
+    current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> RefundResponse:
     """Transition reservation into REFUND_REQUESTED and dispatch to gateway adapter."""
@@ -322,6 +327,9 @@ async def request_refund(
             detail=f"Reservation {payload.reservation_id} not found",
             code="RESERVATION_NOT_FOUND",
         )
+
+    if current_user:
+        verify_resource_ownership(current_user, reservation.driver_id, allow_privileged=True)
 
     if reservation.refund_status == RefundStatusEnum.NONE:
         await RefundService.mark_refund_eligible(db, reservation.id, payload.reason)

@@ -2,57 +2,12 @@
 
 import uuid
 
-from fastapi import Depends, Header, Request
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from fastapi import Depends
 
-from app.core.dependencies import get_db
-from app.core.exceptions import ForbiddenException, UnauthorizedException
-from app.core.security import decode_token, verify_token_type
+from app.core.dependencies import get_current_user, get_current_user_optional
+from app.core.exceptions import ForbiddenException
 from app.models.enums import UserRoleEnum
 from app.models.users import User
-
-
-async def get_current_user(
-    request: Request,
-    authorization: str | None = Header(None, description="Bearer access token"),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """FastAPI dependency extracting, validating, and hydrating the authenticated user."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise UnauthorizedException(
-            detail="Missing or malformed Authorization header. Bearer token required.",
-            code="MISSING_BEARER_TOKEN",
-        )
-
-    raw_token = authorization.split(" ", 1)[1].strip()
-    payload = decode_token(raw_token)
-    verify_token_type(payload, "access")
-
-    user_id_str = payload.get("sub")
-    if not user_id_str:
-        raise UnauthorizedException(detail="Token subject missing", code="INVALID_TOKEN")
-
-    try:
-        user_uuid = uuid.UUID(user_id_str)
-    except ValueError:
-        raise UnauthorizedException(detail="Malformed UUID in token subject", code="INVALID_TOKEN")
-
-    # Fetch user from database with roles eagerly loaded
-    stmt = select(User).where(User.id == user_uuid).options(selectinload(User.roles))
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise UnauthorizedException(detail="User no longer exists", code="USER_NOT_FOUND")
-
-    if not user.is_active:
-        raise ForbiddenException(detail="User account is deactivated", code="ACCOUNT_DEACTIVATED")
-
-    # Attach user to request state for downstream logging/telemetry
-    request.state.user = user
-    return user
 
 
 class RoleChecker:

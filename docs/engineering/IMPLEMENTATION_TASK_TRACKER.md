@@ -247,11 +247,34 @@ This document tracks the end-to-end engineering execution of Gadispot from initi
 
 ---
 
-## 14. Audit & Governance Signoff
+## 14. Strategic Phase 02: Identity, Authentication, Authorization & RBAC
+
+**Goal:** Establish enterprise identity foundation, server-side Firebase Phone Auth verification, UserSession tracking, Single-Use Refresh Token Rotation (RTR), family reuse invalidation, Redis JTI blocklist, RBAC authorization, and fail-closed rate limiting.  
+**Status:** **COMPLETED**  
+**Lead:** Senior Principal IAM & Security Architect  
+**Prerequisites:** Phase 00 and Phase 01 Completion  
+
+| Task ID | Task Title | Role | Status | Description | Deliverables | Verification Criteria |
+|---|---|---|:---:|---|---|---|
+| `TSK-P02-001` | Identity & Account Model Hardening | Database Architect | **COMPLETED** | Add unique `firebase_uid` index and `AccountStatus` enum (`ACTIVE`, `DISABLED`, `SUSPENDED`) to `users` table via Alembic migration `004_identity_and_sessions`. | `backend/alembic/versions/004_identity_and_sessions.py`, `backend/app/models/users.py`. | Validated via `tests/test_identity_lifecycle.py::test_identity_uniqueness_db_constraints`. |
+| `TSK-P02-002` | Session Persistence & SHA-256 Storage | App Security Engineer | **COMPLETED** | Implement `UserSession` model storing one-way SHA-256 hashed refresh tokens, family tracking, and device metadata. | `backend/app/models/session.py`. | Validated via `tests/security/test_phase02_iam_hardening.py::test_session_creation_and_sha256_storage`. |
+| `TSK-P02-003` | Server-Side Firebase Auth Token Exchange | App Security Engineer | **COMPLETED** | Implement `POST /api/v1/auth/session` validating Firebase ID tokens using Firebase Admin SDK and issuing scoped session pairs. | `backend/app/api/v1/endpoints/auth.py`, `backend/app/services/auth_service.py`. | Validated via `tests/test_identity_lifecycle.py::test_firebase_token_verification_rules`. |
+| `TSK-P02-004` | Refresh Token Rotation & Reuse Revocation | App Security Engineer | **COMPLETED** | Implement `POST /api/v1/auth/refresh` enforcing single-use rotation and cryptographic family revocation on replay detection. | `backend/app/api/v1/endpoints/auth.py`. | Validated via `tests/security/test_phase02_iam_hardening.py::test_refresh_token_single_use_rotation`. |
+| `TSK-P02-005` | Explicit Logout & Redis Access Blocklist | Backend Engineer | **COMPLETED** | Implement `POST /api/v1/auth/logout` revoking database session and adding access token JTI to Redis blocklist. | `backend/app/api/v1/endpoints/auth.py`, `backend/app/core/dependencies.py`. | Validated via `tests/test_auth_session_lifecycle.py::test_session_logout_and_redis_access_token_blocklist`. |
+| `TSK-P02-006` | Authenticated Profile & Status Enforcement | Backend Engineer | **COMPLETED** | Implement `GET /api/v1/auth/me` returning caller profile, roles, permissions, and account status; block suspended accounts. | `backend/app/api/v1/endpoints/auth.py`, `backend/app/core/dependencies.py`. | Validated via `tests/security/test_phase02_iam_hardening.py::test_get_current_user_profile_me`. |
+| `TSK-P02-007` | Multi-Role Viewport Switching & Escalation Defense | App Security Engineer | **COMPLETED** | Implement `POST /api/v1/auth/switch-role` with database-verified role validation preventing unauthorized role escalation. | `backend/app/api/v1/endpoints/auth.py`, `backend/app/services/auth_service.py`. | Validated via `tests/security/test_phase02_iam_hardening.py::test_multi_role_switching_and_escalation_defense`. |
+| `TSK-P02-008` | Object-Level IDOR Shields | App Security Engineer | **COMPLETED** | Implement declarative ownership dependencies in `backend/app/core/authorization.py` shielding tenant bookings. | `backend/app/core/authorization.py`. | Validated via `tests/security/test_phase02_iam_hardening.py::test_booking_idor_shielding`. |
+| `TSK-P02-009` | Fail-Closed Auth Rate Limiting | Senior Backend Engineer | **COMPLETED** | Implement fail-closed sliding window rate limiters for OTP, login, refresh, and 2FA with in-memory fallback. | `backend/app/core/rate_limiter.py`. | Validated via `tests/security/test_phase02_iam_hardening.py::test_fail_closed_rate_limiter_in_memory`. |
+| `TSK-P02-010` | Mobile Automatic Token Refresh Interceptor | Senior Flutter Engineer | **COMPLETED** | Implement Dio refresh interceptor and anti-slop role switcher widget in Flutter client. | `mobile/lib/core/network/api_client.dart`, `mobile/lib/core/widgets/role_switcher.dart`. | Validated via `scripts/validate_mobile_spec.py` and unit tests. |
+
+---
+
+## 15. Audit & Governance Signoff
 
 | Role | Name / Persona | Status | Date |
 |---|---|:---:|:---:|
 | Engineering Documentation Lead | Worker 1 | **APPROVED** | 2026-11-05 |
 | Principal Software Architect | Lead Architect Persona | **APPROVED** | 2026-11-05 |
 | Engineering Auditor | Forensic Auditor Persona | **CLEAN** | 2026-11-05 |
+| Lead IAM & Security Architect | Antigravity Phase 02 Lead | **APPROVED** | 2026-11-06 |
 

@@ -11,10 +11,12 @@ class ApiEndpoints {
   static const String healthApi = '$apiVersion/health';
 
   // Authentication & Session
+  static const String authSession = '$apiVersion/auth/session';
   static const String authFirebaseExchange = '$apiVersion/auth/firebase-exchange';
   static const String authRefresh = '$apiVersion/auth/refresh';
   static const String authLogout = '$apiVersion/auth/logout';
   static const String authProfile = '$apiVersion/auth/me';
+  static const String authSwitchRole = '$apiVersion/auth/switch-role';
 
   // Bookings & Reservations
   static const String bookingsHold = '$apiVersion/bookings/hold';

@@ -1,13 +1,19 @@
 """FastAPI async dependency injectors."""
 
+import uuid
 from collections.abc import AsyncGenerator
 
 import redis.asyncio as aioredis
-from fastapi import Request
+from fastapi import Depends, Header, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings, get_settings
+from app.core.exceptions import ForbiddenException, UnauthorizedException
+from app.core.security import decode_token, verify_token_type
 from app.db.session import async_session_factory
+from app.models.users import AccountStatus, User
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -43,4 +49,131 @@ async def get_redis(request: Request) -> AsyncGenerator[aioredis.Redis, None]:
             await client.aclose()
 
 
-__all__ = ["Settings", "get_db", "get_redis", "get_settings"]
+async def get_current_user(
+    request: Request,
+    authorization: str | None = Header(None, description="Bearer access token"),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """FastAPI dependency extracting, validating, and hydrating authenticated user with account lifecycle checks."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise UnauthorizedException(
+            detail="Missing or malformed Authorization header. Bearer token required.",
+            code="MISSING_BEARER_TOKEN",
+        )
+
+    raw_token = authorization.split(" ", 1)[1].strip()
+    payload = decode_token(raw_token)
+    verify_token_type(payload, "access")
+
+    # Redis token blocklist verification
+    jti = payload.get("jti")
+    family_id = payload.get("family_id")
+    if jti:
+        redis_client = None
+        app = getattr(request, "app", None)
+        if app is not None and hasattr(app, "state"):
+            redis_client = getattr(app.state, "redis", None)
+        elif hasattr(request, "state"):
+            redis_client = getattr(request.state, "redis", None)
+
+        created_client = False
+        if redis_client is None and app is not None:
+            try:
+                settings = get_settings()
+                redis_client = aioredis.from_url(
+                    settings.REDIS_URL,
+                    protocol=settings.REDIS_PROTOCOL,
+                    socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
+                    socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
+                )
+                created_client = True
+            except Exception:
+                redis_client = None
+
+        if redis_client is not None:
+            try:
+                is_blocked = await redis_client.get(f"jwt:blocklist:{jti}")
+                if is_blocked:
+                    raise UnauthorizedException(
+                        detail="Token has been revoked",
+                        code="TOKEN_REVOKED",
+                    )
+                if family_id:
+                    is_family_revoked = await redis_client.get(f"jwt:family:revoked:{family_id}")
+                    if is_family_revoked:
+                        raise UnauthorizedException(
+                            detail="Session family has been revoked.",
+                            code="TOKEN_REVOKED",
+                        )
+            except aioredis.RedisError:
+                pass
+            finally:
+                if created_client:
+                    await redis_client.aclose()
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise UnauthorizedException(detail="Token subject missing", code="INVALID_TOKEN")
+
+    try:
+        user_uuid = uuid.UUID(user_id_str)
+    except ValueError:
+        raise UnauthorizedException(detail="Malformed UUID in token subject", code="INVALID_TOKEN")
+
+    # Fetch user from database with roles eagerly loaded
+    stmt = select(User).where(User.id == user_uuid).options(selectinload(User.roles))
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise UnauthorizedException(detail="User no longer exists", code="USER_NOT_FOUND")
+
+    # Account lifecycle & status enforcement
+    if hasattr(user, "status"):
+        if user.status == AccountStatus.SUSPENDED:
+            raise ForbiddenException(
+                detail="Account has been suspended",
+                title="Account Suspended",
+                code="ACCOUNT_SUSPENDED",
+            )
+        if user.status == AccountStatus.DISABLED:
+            raise ForbiddenException(
+                detail="Account is disabled",
+                title="Account Disabled",
+                code="ACCOUNT_DISABLED",
+            )
+
+    if not user.is_active:
+        raise ForbiddenException(
+            detail="Account is disabled",
+            title="Account Inactive",
+            code="ACCOUNT_DEACTIVATED",
+        )
+
+    # Attach user to request state for downstream logging/telemetry
+    request.state.user = user
+    return user
+
+
+async def get_current_user_optional(
+    request: Request,
+    authorization: str | None = Header(None, description="Bearer access token"),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Optional user extractor for endpoints that support both authenticated and unauthenticated callers."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        return await get_current_user(request=request, authorization=authorization, db=db)
+    except Exception:
+        return None
+
+
+__all__ = [
+    "Settings",
+    "get_current_user",
+    "get_current_user_optional",
+    "get_db",
+    "get_redis",
+    "get_settings",
+]

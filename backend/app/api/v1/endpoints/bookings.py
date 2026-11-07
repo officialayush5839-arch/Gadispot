@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authorization import get_current_user
+from app.core.authorization import get_current_user, verify_resource_ownership
 from app.core.dependencies import get_db
 from app.core.exceptions import (
     ConflictException,
@@ -19,6 +19,7 @@ from app.core.exceptions import (
     ValidationException,
 )
 from app.models.reservations import SpaceReservation
+from app.models.users import User
 from app.schemas.bookings import (
     CreateHoldRequest,
     HoldResponse,
@@ -125,9 +126,10 @@ async def create_booking_hold(
 )
 async def get_reservation_details(
     reservation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ReservationDetailResponse:
-    """Retrieve reservation record."""
+    """Retrieve reservation record with strict object-level authorization."""
     stmt = select(SpaceReservation).where(SpaceReservation.id == reservation_id)
     result = await db.execute(stmt)
     res = result.scalar_one_or_none()
@@ -136,6 +138,8 @@ async def get_reservation_details(
             detail=f"Reservation {reservation_id} not found",
             code="RESERVATION_NOT_FOUND",
         )
+
+    verify_resource_ownership(current_user, res.driver_id, allow_privileged=True)
 
     return ReservationDetailResponse(
         reservation_id=res.id,

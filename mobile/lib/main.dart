@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/config/env.dart';
 import 'core/constants/app_constants.dart';
 import 'core/routing/app_router.dart';
+import 'core/security/secure_storage_service.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
@@ -23,12 +24,31 @@ void main() async {
     return true;
   };
 
-  runApp(const GadispotApp());
+  // Restore authenticated session on application startup (GAP-26)
+  String initialRoute = AppRouter.root;
+  try {
+    final storage = FlutterSecureStorageServiceImpl();
+    final token = await storage.getAccessToken();
+    if (token != null && token.isNotEmpty) {
+      final roleStr = await storage.getUserRole();
+      final role = UserRoleExtension.fromString(roleStr) ?? UserRole.driver;
+      initialRoute = AppRouter.resolveInitialRoute(role);
+    }
+  } catch (e) {
+    debugPrint('[SESSION RESTORATION ERROR] $e');
+  }
+
+  runApp(GadispotApp(initialRoute: initialRoute));
 }
 
 /// Root Application Widget for Gadispot Mobile Client.
 class GadispotApp extends StatelessWidget {
-  const GadispotApp({super.key});
+  final String initialRoute;
+
+  const GadispotApp({
+    super.key,
+    this.initialRoute = AppRouter.root,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +58,7 @@ class GadispotApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      initialRoute: AppRouter.root,
+      initialRoute: initialRoute,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }

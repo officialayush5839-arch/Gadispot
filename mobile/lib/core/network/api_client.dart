@@ -55,6 +55,79 @@ class AuthInterceptor extends Interceptor {
   }
 }
 
+/// Interceptor that intercepts HTTP 401 Unauthorized errors to perform automatic
+/// background token refresh using the stored refresh token and retry the original request.
+class RefreshTokenInterceptor extends QueuedInterceptor {
+  final Dio dio;
+  final SecureStorageService storageService;
+  bool _isRefreshing = false;
+
+  RefreshTokenInterceptor({
+    required this.dio,
+    required this.storageService,
+  });
+
+  @override
+  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+    final response = err.response;
+    final path = err.requestOptions.path;
+
+    // Do not attempt refresh on auth endpoints to prevent endless loops
+    final isAuthEndpoint = path.contains('/auth/session') ||
+        path.contains('/auth/firebase-exchange') ||
+        path.contains('/auth/refresh') ||
+        path.contains('/auth/logout');
+
+    if (response?.statusCode == 401 && !isAuthEndpoint && !_isRefreshing) {
+      _isRefreshing = true;
+      try {
+        final refreshToken = await storageService.getRefreshToken();
+        if (refreshToken != null && refreshToken.isNotEmpty) {
+          final refreshDio = Dio(
+            BaseOptions(
+              baseUrl: dio.options.baseUrl,
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 10),
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            ),
+          );
+
+          final refreshResp = await refreshDio.post<Map<String, dynamic>>(
+            '/api/v1/auth/refresh',
+            data: {'refresh_token': refreshToken},
+          );
+
+          if (refreshResp.statusCode == 200 && refreshResp.data != null) {
+            final data = refreshResp.data!;
+            final newAccess = data['access_token'] as String;
+            final newRefresh = data['refresh_token'] as String;
+
+            await storageService.saveAccessToken(newAccess);
+            await storageService.saveRefreshToken(newRefresh);
+
+            final options = err.requestOptions;
+            options.headers['Authorization'] = 'Bearer $newAccess';
+
+            final retryResponse = await dio.fetch<dynamic>(options);
+            _isRefreshing = false;
+            return handler.resolve(retryResponse);
+          }
+        }
+      } catch (refreshError) {
+        // Refresh token compromised, expired, or reuse detected: wipe tokens
+        await storageService.wipeAllOnLogout();
+      } finally {
+        _isRefreshing = false;
+      }
+    }
+
+    handler.next(err);
+  }
+}
+
 /// Interceptor that translates HTTP and network errors into typed Failure objects,
 /// parsing RFC 7807 Problem Details payloads when available.
 class ProblemDetailsInterceptor extends Interceptor {
@@ -170,6 +243,7 @@ class ApiClient {
     dio.interceptors.addAll([
       RequestIdInterceptor(),
       AuthInterceptor(storageService),
+      RefreshTokenInterceptor(dio: dio, storageService: storageService),
       ProblemDetailsInterceptor(),
     ]);
   }

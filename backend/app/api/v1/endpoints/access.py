@@ -7,10 +7,12 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db
+from app.core.authorization import verify_resource_ownership
+from app.core.dependencies import get_current_user_optional, get_db
 from app.core.exceptions import (
     ConflictException,
     EntityNotFoundException,
+    ForbiddenException,
     ValidationException,
 )
 from app.models.access import AccessCredential
@@ -18,8 +20,10 @@ from app.models.enums import (
     ReservationStatusEnum,
     TokenStatusEnum,
     TokenTypeEnum,
+    UserRoleEnum,
 )
 from app.models.reservations import SpaceReservation
+from app.models.users import User
 from app.schemas.access import (
     IssueTokensRequest,
     IssueTokensResponse,
@@ -38,6 +42,7 @@ router = APIRouter()
 )
 async def issue_access_tokens(
     payload: IssueTokensRequest,
+    current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> IssueTokensResponse:
     """Generate separate entry and exit access passes for a confirmed reservation."""
@@ -49,6 +54,9 @@ async def issue_access_tokens(
             detail=f"Reservation {payload.reservation_id} not found",
             code="RESERVATION_NOT_FOUND",
         )
+
+    if current_user:
+        verify_resource_ownership(current_user, res.driver_id, allow_privileged=True)
 
     if res.status not in (
         ReservationStatusEnum.CONFIRMED,
@@ -105,9 +113,22 @@ async def issue_access_tokens(
 )
 async def validate_gate_scan(
     payload: ValidateScanRequest,
+    current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> ValidateScanResponse:
     """Validate access pass, guard against replay attacks, and update session state."""
+    guard_id = payload.guard_id
+    if current_user:
+        user_roles = {r.role.value if hasattr(r.role, "value") else str(r.role) for r in current_user.roles}
+        allowed = {UserRoleEnum.GUARD.value, UserRoleEnum.ADMIN.value, "SECURITY_GUARD", "GUARD", "ADMIN"}
+        if not user_roles.intersection(allowed):
+            raise ForbiddenException(
+                detail="Guard clearance required to validate gate scan.",
+                title="Insufficient Permissions",
+                code="GUARD_ROLE_REQUIRED",
+            )
+        guard_id = current_user.id
+
     stmt = select(AccessCredential).where(AccessCredential.opaque_token == payload.opaque_token).with_for_update()
     result = await db.execute(stmt)
     cred = result.scalar_one_or_none()
@@ -127,7 +148,7 @@ async def validate_gate_scan(
     now = datetime.now(timezone.utc)
     cred.status = TokenStatusEnum.CONSUMED
     cred.consumed_at = now
-    cred.consumed_by_guard_id = payload.guard_id
+    cred.consumed_by_guard_id = guard_id
 
     # Update associated reservation state
     res_stmt = select(SpaceReservation).where(SpaceReservation.id == cred.reservation_id).with_for_update()

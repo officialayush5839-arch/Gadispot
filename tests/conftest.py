@@ -77,7 +77,7 @@ async def clean_db(pg_pool):
                 space_reservations, access_credentials, offline_manual_admissions,
                 journal_lines, journal_entries, parking_spaces, operating_schedules,
                 property_authorizations, properties, vehicles, user_roles, users,
-                payment_webhook_events, outbox_events, audit_events CASCADE;
+                user_sessions, payment_webhook_events, outbox_events, audit_events CASCADE;
         """)
     yield
     async with pg_pool.acquire() as conn:
@@ -86,7 +86,7 @@ async def clean_db(pg_pool):
                 space_reservations, access_credentials, offline_manual_admissions,
                 journal_lines, journal_entries, parking_spaces, operating_schedules,
                 property_authorizations, properties, vehicles, user_roles, users,
-                payment_webhook_events, outbox_events, audit_events CASCADE;
+                user_sessions, payment_webhook_events, outbox_events, audit_events CASCADE;
         """)
 
 

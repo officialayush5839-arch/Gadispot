@@ -1,5 +1,6 @@
 """SQLAlchemy declarative models for users, roles, and vehicles."""
 
+import enum
 import uuid
 from datetime import datetime
 
@@ -18,6 +19,17 @@ from app.db.base import Base
 from app.models.enums import UserRoleEnum, VehicleCategoryEnum
 
 
+class AccountStatus(str, enum.Enum):
+    """Account lifecycle status for authorization and access enforcement."""
+
+    ACTIVE = "ACTIVE"
+    DISABLED = "DISABLED"
+    SUSPENDED = "SUSPENDED"
+
+
+UserStatusEnum = AccountStatus
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -25,7 +37,16 @@ class User(Base):
     phone_number: Mapped[str] = mapped_column(String(16), unique=True, nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(128), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    firebase_uid: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True, index=True)
+    status: Mapped[AccountStatus] = mapped_column(
+        ENUM(AccountStatus, name="account_status_enum", create_type=False),
+        nullable=False,
+        server_default="ACTIVE",
+        default=AccountStatus.ACTIVE,
+        index=True,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -38,6 +59,9 @@ class User(Base):
     vehicles: Mapped[list["Vehicle"]] = relationship("Vehicle", back_populates="driver", cascade="all, delete-orphan")
     properties: Mapped[list["Property"]] = relationship(  # type: ignore # noqa: F821
         "Property", back_populates="owner"
+    )
+    sessions: Mapped[list["UserSession"]] = relationship(  # type: ignore # noqa: F821
+        "UserSession", back_populates="user", cascade="all, delete-orphan"
     )
 
 

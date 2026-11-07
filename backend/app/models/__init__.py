@@ -25,11 +25,14 @@ from app.models.parking import ParkingSpace
 from app.models.payments import OutboxEvent, Payment, PaymentWebhookEvent
 from app.models.properties import OperatingSchedule, Property, PropertyAuthorization
 from app.models.reservations import SpaceReservation
-from app.models.users import User, UserRole, Vehicle
+from app.models.session import UserSession
+from app.models.users import AccountStatus, User, UserRole, UserStatusEnum, Vehicle
 
 __all__ = [
     "Base",
     # Enums
+    "AccountStatus",
+    "UserStatusEnum",
     "UserRoleEnum",
     "PropertyTypeEnum",
     "AuthorizationStatusEnum",
@@ -49,6 +52,7 @@ __all__ = [
     # Models
     "User",
     "UserRole",
+    "UserSession",
     "Vehicle",
     "Property",
     "PropertyAuthorization",
