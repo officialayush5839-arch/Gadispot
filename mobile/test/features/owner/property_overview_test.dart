@@ -31,8 +31,9 @@ void main() {
       );
 
       expect(find.byType(BayManagementView), findsOneWidget);
-      expect(find.text('Bay Inventory & Pricing'), findsOneWidget);
-      expect(find.text('Add New Bay'), findsOneWidget);
+      expect(find.text('Parking Bays & Schedules'), findsOneWidget);
+      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.text('BAY-01 (Driveway East)'), findsOneWidget);
     });
   });
 }

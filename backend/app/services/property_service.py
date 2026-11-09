@@ -159,8 +159,7 @@ class PropertyService:
             setattr(prop, key, value)
 
         await db.commit()
-        await db.refresh(prop)
-        return prop
+        return await cls.get_property(db, property_id)
 
     @classmethod
     async def submit_for_review(

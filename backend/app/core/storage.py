@@ -105,29 +105,42 @@ class StorageService:
         except Exception as e:
             logger.debug(f"PyMuPDF overlay fallback: {e}")
 
-        # Synthesize clean valid PDF with ReportLab
-        from reportlab.lib.pagesizes import letter
-        from reportlab.pdfgen import canvas
+        # Synthesize clean valid PDF with ReportLab or zero-dependency fallback
+        try:
+            from reportlab.lib.pagesizes import letter
+            from reportlab.pdfgen import canvas
 
-        buf = io.BytesIO()
-        c = canvas.Canvas(buf, pagesize=letter)
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(72, 720, "Gadispot Verification Dossier Document")
-        c.setFont("Helvetica", 10)
-        c.drawString(72, 700, "Secure legal authorization record.")
+            buf = io.BytesIO()
+            c = canvas.Canvas(buf, pagesize=letter)
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(72, 720, "Gadispot Verification Dossier Document")
+            c.setFont("Helvetica", 10)
+            c.drawString(72, 700, "Secure legal authorization record.")
 
-        # Diagonal watermark
-        c.saveState()
-        c.setFont("Helvetica-Bold", 34)
-        c.setFillColorRGB(0.85, 0.15, 0.15, 0.35)
-        c.translate(300, 400)
-        c.rotate(45)
-        c.drawCentredString(0, 0, watermark_text)
-        c.restoreState()
+            # Diagonal watermark
+            c.saveState()
+            c.setFont("Helvetica-Bold", 34)
+            c.setFillColorRGB(0.85, 0.15, 0.15, 0.35)
+            c.translate(300, 400)
+            c.rotate(45)
+            c.drawCentredString(0, 0, watermark_text)
+            c.restoreState()
 
-        c.showPage()
-        c.save()
-        return buf.getvalue()
+            c.showPage()
+            c.save()
+            return buf.getvalue()
+        except ImportError:
+            return (
+                b"%PDF-1.4\n"
+                b"1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj\n"
+                b"2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj\n"
+                b"3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R>> endobj\n"
+                b"4 0 obj <</Length 65>> stream\n"
+                b"BT /F1 20 Tf 72 700 Td (For Gadispot Verification Only) Tj ET\n"
+                b"endstream endobj\n"
+                b"xref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000056 00000 n \n0000000111 00000 n \n0000000212 00000 n \n"
+                b"trailer <</Size 5 /Root 1 0 R>>\nstartxref\n328\n%%EOF\n"
+            )
 
     @classmethod
     def _watermark_image(
