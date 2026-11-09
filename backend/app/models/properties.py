@@ -20,7 +20,9 @@ from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.documents import PropertyDocument
 from app.models.enums import AuthorizationStatusEnum, PropertyTypeEnum
+from app.models.schedules import BlackoutSchedule
 
 
 class Property(Base):
@@ -64,6 +66,12 @@ class Property(Base):
     operating_schedules: Mapped[list["OperatingSchedule"]] = relationship(
         "OperatingSchedule", back_populates="property", cascade="all, delete-orphan"
     )
+    documents: Mapped[list["PropertyDocument"]] = relationship(  # type: ignore # noqa: F821
+        "PropertyDocument", back_populates="property", cascade="all, delete-orphan"
+    )
+    blackouts: Mapped[list["BlackoutSchedule"]] = relationship(  # type: ignore # noqa: F821
+        "BlackoutSchedule", back_populates="property", cascade="all, delete-orphan"
+    )
 
 
 class PropertyAuthorization(Base):
@@ -81,12 +89,20 @@ class PropertyAuthorization(Base):
         default=AuthorizationStatusEnum.DRAFT,
         nullable=False,
     )
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     pan_number: Mapped[str | None] = mapped_column(String(16), nullable=True)
     gstin: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    rejection_reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     property: Mapped["Property"] = relationship("Property", back_populates="authorization")
 

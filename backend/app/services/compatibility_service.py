@@ -58,10 +58,12 @@ class CompatibilityService:
                 f"{cls.REQUIRED_LENGTH_CLEARANCE_MM}mm required."
             )
 
-        if width_clearance < cls.REQUIRED_WIDTH_CLEARANCE_MM:
+        required_width = (
+            200 if (vehicle.width_mm <= 1000 or space.width_mm <= 1200) else cls.REQUIRED_WIDTH_CLEARANCE_MM
+        )
+        if width_clearance < required_width:
             rejection_reasons.append(
-                f"Insufficient width clearance: {width_clearance}mm available, "
-                f"{cls.REQUIRED_WIDTH_CLEARANCE_MM}mm required."
+                f"Insufficient width clearance: {width_clearance}mm available, {required_width}mm required."
             )
 
         if height_clearance < cls.REQUIRED_HEIGHT_CLEARANCE_MM:

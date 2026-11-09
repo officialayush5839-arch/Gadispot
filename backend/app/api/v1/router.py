@@ -1,6 +1,15 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import access, auth, bookings, health, payments, webhooks
+from app.api.v1.endpoints import (
+    access,
+    auth,
+    bookings,
+    health,
+    ops,
+    payments,
+    properties,
+    webhooks,
+)
 
 api_router = APIRouter()
 
@@ -21,3 +30,12 @@ api_router.include_router(payments.router, prefix="/payments", tags=["Payment Ma
 
 # Gate Access Pass Issuance & Verification under /api/v1/access
 api_router.include_router(access.router, prefix="/access", tags=["Gate Access Passes"])
+
+# Property & Inventory Management under /api/v1/properties
+api_router.include_router(properties.router, prefix="/properties", tags=["Property & Inventory Management"])
+
+# Parking Spaces under /api/v1/spaces
+api_router.include_router(properties.spaces_router, prefix="/spaces", tags=["Property & Inventory Management"])
+
+# Operations Review & Verification under /api/v1/ops
+api_router.include_router(ops.router, prefix="/ops", tags=["Operations & Property Review"])

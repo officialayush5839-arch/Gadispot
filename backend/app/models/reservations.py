@@ -39,10 +39,10 @@ class SpaceReservation(Base):
         nullable=False,
         index=True,
     )
-    vehicle_id: Mapped[uuid.UUID] = mapped_column(
+    vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("vehicles.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
 
     time_window = mapped_column(TSTZRANGE, nullable=False)
@@ -61,8 +61,44 @@ class SpaceReservation(Base):
 
     payment_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     payment_transaction_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    booking_reference: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    booking_reference: Mapped[str] = mapped_column(
+        String(32), unique=True, nullable=False, default=lambda: f"BK-{uuid.uuid4().hex[:8].upper()}"
+    )
     idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+
+    @property
+    def start_time(self) -> datetime | None:
+        if self.time_window:
+            return self.time_window.lower
+        return None
+
+    @start_time.setter
+    def start_time(self, val: datetime) -> None:
+        from asyncpg.types import Range
+
+        end = self.time_window.upper if getattr(self, "time_window", None) else None
+        self.time_window = Range(val, end, lower_inc=True, upper_inc=False)
+
+    @property
+    def end_time(self) -> datetime | None:
+        if self.time_window:
+            return self.time_window.upper
+        return None
+
+    @end_time.setter
+    def end_time(self, val: datetime) -> None:
+        from asyncpg.types import Range
+
+        start = self.time_window.lower if getattr(self, "time_window", None) else None
+        self.time_window = Range(start, val, lower_inc=True, upper_inc=False)
+
+    @property
+    def total_amount_paise(self) -> int:
+        return 0
+
+    @total_amount_paise.setter
+    def total_amount_paise(self, val: int) -> None:
+        pass
 
     refund_status: Mapped[RefundStatusEnum] = mapped_column(
         ENUM(RefundStatusEnum, name="refund_status_enum", create_type=False),

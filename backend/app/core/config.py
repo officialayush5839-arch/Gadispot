@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     CASHFREE_SECRET_KEY: str = ""
     CASHFREE_WEBHOOK_SECRET: str = ""
 
+    # AWS S3 Document Storage
+    AWS_S3_BUCKET_NAME: str = "gadispot-documents-storage"
+    AWS_REGION: str = "ap-south-1"
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def assemble_db_connection(cls, v: str) -> str:

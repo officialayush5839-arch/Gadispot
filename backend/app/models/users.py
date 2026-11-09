@@ -3,6 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
+from typing import Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -77,6 +78,37 @@ class User(Base):
             if canonical not in names:
                 names.append(canonical)
         return names
+
+    def has_role(self, role: Any) -> bool:
+        """Check if user has a specific role or alias."""
+        from app.core.authorization import ROLE_ALIASES
+
+        target = role.value if hasattr(role, "value") else str(role)
+        canonical_target = ROLE_ALIASES.get(target, target)
+        return canonical_target in self.canonical_role_names
+
+    @property
+    def totp_secret(self) -> str | None:
+        if self.totp_secret_encrypted:
+            try:
+                from app.core.security import decrypt_totp_secret
+
+                return decrypt_totp_secret(self.totp_secret_encrypted)
+            except Exception:
+                return self.totp_secret_encrypted
+        return None
+
+    @totp_secret.setter
+    def totp_secret(self, val: str | None) -> None:
+        if val:
+            try:
+                from app.core.security import encrypt_totp_secret
+
+                self.totp_secret_encrypted = encrypt_totp_secret(val)
+            except Exception:
+                self.totp_secret_encrypted = val
+        else:
+            self.totp_secret_encrypted = None
 
 
 class UserRole(Base):
